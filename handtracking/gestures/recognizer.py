@@ -26,6 +26,8 @@ class GestureResult:
     @property
     def gesture_type(self): return self.gesture
     @property
+    def is_pinch(self): return self.gesture == GestureType.PINCH or str(self.gesture).lower().endswith("pinch")
+    @property
     def handedness(self): return self.hand.handedness
 
 def _dist(a,b): return sqrt((a.x-b.x)**2+(a.y-b.y)**2+(a.z-b.z)**2)
