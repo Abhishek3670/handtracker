@@ -1,8 +1,10 @@
 """Command-line live demo and synthetic benchmark."""
 from __future__ import annotations
 import argparse, time
+def _parse_camera(val: str) -> int | str:
+    return int(val) if str(val).isdigit() else val
 def build_parser():
-    p=argparse.ArgumentParser(description="HandTracking live demo"); p.add_argument("--camera", default=0); p.add_argument("--width", type=int); p.add_argument("--height", type=int); p.add_argument("--no-smoothing", action="store_true"); p.add_argument("--mirror", action="store_true"); p.add_argument("--headless", action="store_true"); p.add_argument("--benchmark", type=int, metavar="N"); return p
+    p=argparse.ArgumentParser(description="HandTracking live demo"); p.add_argument("--camera", default=0, type=_parse_camera); p.add_argument("--width", type=int); p.add_argument("--height", type=int); p.add_argument("--no-smoothing", action="store_true"); p.add_argument("--mirror", action="store_true"); p.add_argument("--headless", action="store_true"); p.add_argument("--benchmark", type=int, metavar="N"); return p
 def main(argv=None):
     args=build_parser().parse_args(argv)
     if args.benchmark is not None:

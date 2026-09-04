@@ -58,12 +58,17 @@ class AsyncWebcamCapture:
             self.start()
 
     def _open_camera(self) -> bool:
+        source = int(self.source) if isinstance(self.source, str) and self.source.isdigit() else self.source
         if self._camera is None:
             if self._camera_factory is not None:
-                self._camera = self._camera_factory(self.source)
+                self._camera = self._camera_factory(source)
             elif cv2 is not None:
-                args = (self.source,) if self._backend is None else (self.source, self._backend)
+                args = (source,) if self._backend is None else (source, self._backend)
                 self._camera = cv2.VideoCapture(*args)
+                if (not self._camera.isOpened() and isinstance(source, int) and
+                        self._backend is None and hasattr(cv2, "CAP_DSHOW")):
+                    self._camera.release()
+                    self._camera = cv2.VideoCapture(source, cv2.CAP_DSHOW)
             else:
                 return False
         if self._width is not None and cv2 is not None:
