@@ -49,6 +49,7 @@ class MediaPipeHandDetector(BaseHandDetector):
     def __init__(self, max_num_hands: int = 2,
                  min_detection_confidence: float = 0.7,
                  min_tracking_confidence: float = 0.5,
+                 model_complexity: int = 1,
                  *, hands_solution: Any = None) -> None:
         if hands_solution is None:
             if mp is None:
@@ -59,6 +60,7 @@ class MediaPipeHandDetector(BaseHandDetector):
             max_num_hands=max_num_hands,
             min_detection_confidence=min_detection_confidence,
             min_tracking_confidence=min_tracking_confidence,
+            model_complexity=model_complexity,
         )
         self.last_error: str | None = None
 

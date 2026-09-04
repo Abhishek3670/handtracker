@@ -106,6 +106,19 @@ flowchart TD
 - [x] Interactive live demo CLI (`python -m handtracking.demo`).
 - [x] Full end-to-end integration tests.
 
+### Milestone 6: Model Complexity & Dynamic 3D Temporal Gestures [COMPLETED]
+- [x] Configurable Model Complexity (`model_complexity=0` Lite vs `model_complexity=1` Full) in detector, pipeline, and CLI.
+- [x] 3D Temporal Landmark Trajectory Buffer (`TrajectoryBuffer`) with velocity, displacement, and direction tracking.
+- [x] Dynamic Directional Swipe Recognition (Swipe Left, Swipe Right, Swipe Up, Swipe Down).
+- [x] Virtual Air Canvas / Air Drawing Engine (fingertip path drawing, pinch-draw state machine, line smoothing, and HUD canvas rendering).
+- [x] Dynamic Wave / Oscillation and Circle Detection (Clockwise / Counter-Clockwise).
+- [x] Integration with `GestureEventDispatcher` and live interactive HUD controls in `demo.py`.
+
+### Phase 3 / Future Extensions: Deep Learning Sequence Models [ON HOLD / DEFERRED]
+- [ ] Continuous American Sign Language (ASL) sentence recognition via Temporal Transformer / BiLSTM sequence models over 3D landmark streams.
+- [ ] Dense 3D Hand Mesh Estimation (e.g. MANO 778-vertex surface mesh via ONNX Runtime / DirectML GPU).
+- [ ] *Status*: Held per user request to prioritize real-time geometric/temporal gesture capabilities.
+
 ---
 
 ## 6. Work Order Planning & Tracking
@@ -119,3 +132,7 @@ flowchart TD
   - **Worker**: `codex` | **QA**: `gemma` | **Status**: `COMPLETED` (Commit `6e58118`)
 - **WO-005** (Milestone 5): Low-Overhead HUD Visualization, Telemetry Profiler & Interactive Demo.
   - **Worker**: `codex` | **QA**: `gemma` | **Status**: `COMPLETED` (Commit `4a4a2bc`)
+- **WO-006** (Bugfix): Camera device string-to-int parsing and DirectShow backend fallback.
+  - **Worker**: `codex` | **QA**: `gemma` | **Status**: `COMPLETED` (Commit `3779e58`)
+- **WO-007** (Milestone 6): Model Complexity Toggle & Dynamic 3D Temporal Gesture Engine (Swipes, Air Canvas, Circles).
+  - **Worker**: `codex` | **QA**: `gemma` | **Status**: `COMPLETED`

@@ -1,0 +1,10 @@
+Metadata-Version: 2.4
+Name: handtracking
+Version: 0.1.0
+Summary: Low-latency real-time hand tracking
+Requires-Python: >=3.10
+Requires-Dist: opencv-python
+Requires-Dist: mediapipe
+Requires-Dist: numpy
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"

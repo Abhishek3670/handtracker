@@ -22,7 +22,23 @@ def test_hud_draws_in_place_on_synthetic_frame():
 
 def test_hud_draws_pinch_and_stage_telemetry():
     frame = np.zeros((64, 64, 3), dtype=np.uint8)
-    telemetry = PipelineTelemetry(); telemetry.record(StageLatency(inference_ms=4.2, smoothing_ms=.1, gestures_ms=.1, render_ms=.8, total_ms=5.2), 0)
-    result = SimpleNamespace(gesture="PINCH", pinch_distance=.1, is_pinch=True)
+    telemetry = PipelineTelemetry()
+    telemetry.record(StageLatency(inference_ms=4.2, smoothing_ms=0.1, gestures_ms=0.1, render_ms=0.8, total_ms=5.2), 0)
+    result = SimpleNamespace(gesture="PINCH", pinch_distance=0.1, is_pinch=True)
     output = HUDOverlay().draw(frame, [make_hand()], [result], telemetry)
     assert output is frame and int(frame.sum()) > 0
+
+
+def test_hud_temporal_gesture_notifications():
+    frame = np.zeros((100, 100, 3), dtype=np.uint8)
+    hud = HUDOverlay()
+    hud.notify("Swipe Left", duration=1.0, timestamp=10.0)
+    assert len(hud.notifications) == 1
+    # Drawing within active duration renders notification banner
+    output = hud.draw(frame, temporal_gestures=["Circle CW"], timestamp=10.2)
+    assert output is frame and int(frame.sum()) > 0
+    assert len(hud.notifications) == 2
+    # Drawing after expiration clears past notifications
+    frame2 = np.zeros((100, 100, 3), dtype=np.uint8)
+    hud.draw(frame2, timestamp=20.0)
+    assert len(hud.notifications) == 0
