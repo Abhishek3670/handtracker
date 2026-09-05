@@ -182,20 +182,21 @@ class BallRenderer:
         ndoth = np.maximum(0.0, -(nx * hx + ny * hy + nz * hz))
 
         if skin == BallSkin.BASKETBALL:
-            base_b, base_g, base_r = 30, 100, 230
-            ambient = 0.22
-            diffuse_weight = 0.70
-            spec_weight = 0.25
-            shininess = 16
+            base_b, base_g, base_r = 25, 110, 245
+            ambient = 0.35
+            diffuse_weight = 0.75
+            spec_weight = 0.35
+            shininess = 24
 
-            # Basketball black seam curves
-            seams = (np.abs(dx) < 0.06) | (np.abs(dy) < 0.06) | (np.abs(np.abs(dx) - 0.55) < 0.04)
-            diffuse = ambient + diffuse_weight * ndotl
+            # Basketball curved seams and pebbled leather micro-grain
+            seams = (np.abs(dx) < 0.035) | (np.abs(dy) < 0.035) | (np.abs(np.abs(dx) - 0.52) < 0.035)
+            pebble = 0.94 + 0.12 * (np.sin(dx * 80.0) * np.sin(dy * 80.0))
+            diffuse = (ambient + diffuse_weight * ndotl) * pebble
             specular = spec_weight * (ndoth ** shininess)
 
-            b = np.where(seams, 20, np.clip(base_b * diffuse + 255 * specular, 0, 255))
-            g = np.where(seams, 20, np.clip(base_g * diffuse + 255 * specular, 0, 255))
-            r = np.where(seams, 20, np.clip(base_r * diffuse + 255 * specular, 0, 255))
+            b = np.where(seams, 15, np.clip(base_b * diffuse + 255 * specular, 0, 255))
+            g = np.where(seams, 15, np.clip(base_g * diffuse + 255 * specular, 0, 255))
+            r = np.where(seams, 15, np.clip(base_r * diffuse + 255 * specular, 0, 255))
 
         elif skin == BallSkin.CHROME:
             # Metallic mirror reflection

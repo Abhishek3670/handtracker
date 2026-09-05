@@ -70,6 +70,33 @@ def build_uv_sphere_mesh(rings: int = 24, sectors: int = 32, radius: float = 1.0
     return verts_arr, indices_arr
 
 
+def make_rotation_matrix(rx: float, ry: float, rz: float) -> np.ndarray:
+    """Construct 3x3 rotation matrix from pitch (rx), yaw (ry), and roll (rz)."""
+    cx, sx = math.cos(rx), math.sin(rx)
+    cy, sy = math.cos(ry), math.sin(ry)
+    cz, sz = math.cos(rz), math.sin(rz)
+
+    rot_x = np.array([
+        [1.0, 0.0, 0.0],
+        [0.0, cx, -sx],
+        [0.0, sx,  cx],
+    ], dtype=np.float32)
+
+    rot_y = np.array([
+        [ cy, 0.0, sy],
+        [0.0, 1.0, 0.0],
+        [-sy, 0.0, cy],
+    ], dtype=np.float32)
+
+    rot_z = np.array([
+        [cz, -sz, 0.0],
+        [sz,  cz, 0.0],
+        [0.0, 0.0, 1.0],
+    ], dtype=np.float32)
+
+    return np.dot(rot_z, np.dot(rot_y, rot_x))
+
+
 def make_ortho_or_perspective_matrix(focal_depth: float = 0.85) -> np.ndarray:
     """
     Construct 4x4 perspective MVP matrix aligning 3D room coordinates with camera vanishing point.
@@ -129,7 +156,6 @@ in vec3 v_world_normal;
 in vec3 v_local_pos;
 in vec2 v_uv;
 
-uniform vec3 u_light_pos;
 uniform vec3 u_view_pos;
 uniform int u_skin;
 uniform float u_time;
@@ -140,104 +166,177 @@ out vec4 fragColor;
 
 void main() {
     vec3 N = normalize(v_world_normal);
-    vec3 L = normalize(u_light_pos - v_world_pos);
     vec3 V = normalize(u_view_pos - v_world_pos);
-    vec3 H = normalize(L + V);
 
-    float NdotL = max(dot(N, L), 0.0);
-    float NdotH = max(dot(N, H), 0.0);
+    // ─── 3-Point Studio Lighting Setup ───────────────────────
+    // 1. Key Light: Warm bright studio key light (top-right-front)
+    vec3 key_pos = vec3(0.40, 0.60, -2.2);
+    vec3 L_key = normalize(key_pos - v_world_pos);
+    vec3 H_key = normalize(L_key + V);
+    float NdotL_key = max(dot(N, L_key), 0.0);
+    vec3 key_color = vec3(1.0, 0.97, 0.92) * 1.45;
+
+    // 2. Fill Light: Soft cool cyan-blue fill light (front-left)
+    vec3 fill_pos = vec3(-0.70, 0.30, -1.8);
+    vec3 L_fill = normalize(fill_pos - v_world_pos);
+    vec3 H_fill = normalize(L_fill + V);
+    float NdotL_fill = max(dot(N, L_fill), 0.0);
+    vec3 fill_color = vec3(0.75, 0.88, 1.0) * 0.85;
+
+    // 3. Rim / Ground Bounce Light: Soft purple/violet floor bounce (bottom-back)
+    vec3 rim_pos = vec3(0.0, -0.85, 0.6);
+    vec3 L_rim = normalize(rim_pos - v_world_pos);
+    float NdotL_rim = max(dot(N, L_rim), 0.0);
+    vec3 rim_color = vec3(0.85, 0.60, 1.0) * 0.55;
+
+    // 4. Hemispheric Sky/Ground Ambient
+    float hemi = N.y * 0.5 + 0.5;
+    vec3 ambient_light = mix(vec3(0.32, 0.26, 0.40), vec3(0.60, 0.55, 0.68), hemi);
+
     float NdotV = max(dot(N, V), 0.0);
     float fresnel = pow(1.0 - NdotV, 3.0);
 
+    // ─── Holographic Hand Joint Avatar ───────────────────────
     if (u_is_hand_joint == 1) {
-        vec3 col = u_base_color.rgb * (0.65 + 0.35 * NdotL) + vec3(1.0) * pow(NdotH, 16.0) * 0.7 + u_base_color.rgb * fresnel * 1.5;
+        float diff = NdotL_key * 0.7 + NdotL_fill * 0.3;
+        float spec = pow(max(dot(N, H_key), 0.0), 24.0) * 0.8;
+        vec3 col = u_base_color.rgb * (0.65 + 0.35 * diff) + vec3(1.0) * spec + u_base_color.rgb * fresnel * 1.5;
         fragColor = vec4(col, u_base_color.a);
         return;
     }
 
-    vec3 albedo = vec3(0.90, 0.40, 0.12);
-    float shininess = 24.0;
-    float spec_strength = 0.40;
-    float ambient = 0.28;
+    vec3 albedo = vec3(0.98, 0.42, 0.08);
+    float shininess = 32.0;
+    float spec_strength = 0.50;
 
     vec3 p = normalize(v_local_pos);
 
-    if (u_skin == 0) { // BASKETBALL
-        // 1. Precise 3D basketball seam curves in unit sphere coordinates
-        // Main equator
-        float d1 = abs(p.y);
-        // Main prime meridian
-        float d2 = abs(p.x);
-        // Orthogonal meridian
-        float d3 = abs(p.z);
-        // Curved side ribs (classic basketball two-lobed hyperbola arcs)
-        float d4 = abs(abs(p.x) - 0.707 * sqrt(max(0.001, 1.0 - p.y * p.y)));
+    // ─── Material Skins ──────────────────────────────────────
+    if (u_skin == 0) { // BASKETBALL (Wilson Evolution / NBA Pro Leather)
+        // 1. Precise 8-panel basketball seams in local 3D coordinates
+        float d_equator = abs(p.y);
+        float d_meridian1 = abs(p.x);
+        float d_rib1 = abs(abs(p.x) - 0.707 * sqrt(max(0.001, 1.0 - p.y * p.y)));
+        float d_rib2 = abs(abs(p.z) - 0.707 * sqrt(max(0.001, 1.0 - p.y * p.y)));
 
-        float d_seam = min(d1, min(d2, min(d3 * 0.9, d4)));
+        float d_seam = min(d_equator, min(d_meridian1, min(d_rib1, d_rib2)));
 
-        // Anti-aliased seam mask (black rubber rib)
-        float seam_mask = 1.0 - smoothstep(0.020, 0.045, d_seam);
+        // Seam zones:
+        // Core groove: black rubber channel (width ~0.024)
+        float seam_core = 1.0 - smoothstep(0.016, 0.030, d_seam);
+        // Groove shadow falloff: ambient darkening inside channel
+        float seam_shadow = 1.0 - smoothstep(0.025, 0.055, d_seam);
+        // Leather bevel highlight alongside groove
+        float bevel_factor = sin(clamp((d_seam - 0.022) / 0.038, 0.0, 1.0) * 3.14159);
 
-        // High frequency pebbled leather grain
-        float pebble = 0.5 + 0.5 * sin(p.x * 200.0) * sin(p.y * 200.0) * sin(p.z * 200.0);
-        float grain = 0.92 + 0.12 * pebble;
+        // 2. High-Frequency Micro-Pebble Leather Bump Mapping
+        float p1 = sin(p.x * 220.0) * sin(p.y * 220.0) * sin(p.z * 220.0);
+        float p2 = sin(p.x * 440.0 + 1.2) * sin(p.y * 440.0 + 1.2) * sin(p.z * 440.0 + 1.2);
+        float pebble = p1 * 0.7 + p2 * 0.3;
+        float grain = 0.94 + 0.14 * pebble;
 
-        // Rich warm leather color palette
-        vec3 leather_color = vec3(0.92, 0.42, 0.13) * grain;
-        vec3 rubber_black = vec3(0.06, 0.05, 0.05);
+        // Normal perturbation for true tactile leather bump glints
+        vec3 bump = vec3(
+            cos(p.x * 220.0) * sin(p.y * 220.0),
+            cos(p.y * 220.0) * sin(p.z * 220.0),
+            cos(p.z * 220.0) * sin(p.x * 220.0)
+        );
+        N = normalize(N + bump * 0.10 * (1.0 - seam_core));
+        // Recompute lighting with perturbed normal
+        NdotL_key = max(dot(N, L_key), 0.0);
+        NdotL_fill = max(dot(N, L_fill), 0.0);
+        H_key = normalize(L_key + V);
+        H_fill = normalize(L_fill + V);
 
-        albedo = mix(leather_color, rubber_black, seam_mask);
-        spec_strength = mix(0.35, 0.08, seam_mask);
-        shininess = mix(20.0, 6.0, seam_mask);
+        // 3. Premium Wilson Terracotta Leather Color Palette
+        vec3 leather_base = vec3(0.98, 0.42, 0.08) * grain;
+        // Panel center gradient (warmer, brighter towards center of panels)
+        vec3 panel_warmth = vec3(1.0, 0.50, 0.14) * (1.0 - seam_shadow * 0.25);
+        leather_base = mix(leather_base, panel_warmth, 0.35 + 0.20 * bevel_factor);
 
-        // Groove normal perturbation (dip into seam)
-        N = normalize(N - seam_mask * 0.25 * N);
-        NdotL = max(dot(N, L), 0.0);
-        NdotH = max(dot(N, H), 0.0);
+        vec3 rubber_black = vec3(0.05, 0.04, 0.04);
+        albedo = mix(leather_base, rubber_black, seam_core);
 
-    } else if (u_skin == 1) { // CHROME
-        albedo = vec3(0.80, 0.84, 0.90);
-        shininess = 128.0;
-        spec_strength = 1.6;
-        ambient = 0.35;
-        // Mirror reflection & Fresnel iridescence
+        // Groove normal dip for embossed 3D channel depth
+        if (seam_shadow > 0.01) {
+            N = normalize(N - seam_shadow * 0.25 * N);
+        }
+
+        spec_strength = mix(0.45, 0.06, seam_core);
+        shininess = mix(28.0, 6.0, seam_core);
+
+        // Golden leather Fresnel grazing sheen
+        albedo += vec3(1.0, 0.65, 0.20) * pow(1.0 - NdotV, 3.0) * 0.45 * (1.0 - seam_core);
+
+    } else if (u_skin == 1) { // CHROME (Liquid Mirror Metallics)
+        shininess = 256.0;
+        spec_strength = 2.2;
         vec3 refl = reflect(-V, N);
-        float env_grad = 0.5 + 0.5 * refl.y;
-        albedo = mix(vec3(0.3, 0.4, 0.55), vec3(0.95, 0.98, 1.0), env_grad) + vec3(0.15, 0.35, 0.6) * fresnel;
 
-    } else if (u_skin == 2) { // TENNIS
-        // 3D curved tennis ball seam
-        float tennis_seam_dist = abs(p.x * p.y - 0.36 * p.z);
-        float t_seam = 1.0 - smoothstep(0.025, 0.055, tennis_seam_dist);
+        // Simulated cyber room grid reflection
+        float grid_rx = abs(fract(refl.x * 4.0) - 0.5);
+        float grid_ry = abs(fract(refl.y * 4.0) - 0.5);
+        float grid_lines = smoothstep(0.05, 0.02, min(grid_rx, grid_ry));
 
-        vec3 felt_color = vec3(0.78, 0.88, 0.16);
-        vec3 seam_white = vec3(0.92, 0.94, 0.92);
+        vec3 sky_refl = mix(vec3(0.25, 0.35, 0.55), vec3(0.95, 0.98, 1.0), refl.y * 0.5 + 0.5);
+        sky_refl += vec3(0.0, 0.9, 1.0) * grid_lines * 0.5;
+
+        // Chromatic dispersion (RGB split on grazing angles)
+        float f_r = pow(1.0 - NdotV, 2.5);
+        float f_g = pow(1.0 - NdotV, 3.0);
+        float f_b = pow(1.0 - NdotV, 3.5);
+        vec3 dispersion = vec3(f_r, f_g, f_b) * vec3(0.3, 0.6, 1.0);
+
+        albedo = sky_refl + dispersion;
+
+    } else if (u_skin == 2) { // TENNIS (US Open Felt)
+        // Fuzzy micro-fiber velvet procedural texture
+        float felt_noise = sin(p.x * 180.0) * sin(p.y * 180.0) * sin(p.z * 180.0);
+        float felt_grain = 0.94 + 0.12 * felt_noise;
+
+        // Curved 3D tennis ball seam
+        float tennis_dist = abs(p.x * p.y - 0.38 * p.z);
+        float t_seam = 1.0 - smoothstep(0.022, 0.050, tennis_dist);
+
+        vec3 felt_color = vec3(0.82, 0.94, 0.14) * felt_grain;
+        vec3 seam_white = vec3(0.94, 0.95, 0.92);
 
         albedo = mix(felt_color, seam_white, t_seam);
-        spec_strength = mix(0.15, 0.30, t_seam);
-        shininess = mix(8.0, 16.0, t_seam);
-        ambient = 0.35;
-        // Velvety felt rim glow (inverted Fresnel)
-        albedo += felt_color * (1.0 - NdotV) * 0.35;
+        spec_strength = mix(0.18, 0.35, t_seam);
+        shininess = mix(10.0, 20.0, t_seam);
 
-    } else if (u_skin == 3) { // NEON / CYBER
-        vec3 cyan = vec3(0.0, 0.95, 1.0);
-        vec3 magenta = vec3(1.0, 0.1, 0.8);
+        // Inverted Fresnel velvet sheen (fuzzy rim glow)
+        albedo += felt_color * (1.0 - NdotV) * 0.45;
+
+    } else if (u_skin == 3) { // NEON CYBER CORE (Holographic Plasma)
+        vec3 cyan = vec3(0.0, 0.96, 1.0);
+        vec3 magenta = vec3(1.0, 0.15, 0.85);
+        vec3 gold = vec3(1.0, 0.85, 0.10);
+
         float pulse = 0.5 + 0.5 * sin(u_time * 4.0);
-        float grid_p = sin(p.x * 24.0) * sin(p.y * 24.0) * sin(p.z * 24.0);
-        float grid_mask = smoothstep(0.1, 0.4, abs(grid_p));
+        float plasma_wave = sin(p.x * 16.0 + u_time * 3.0) * sin(p.y * 16.0 - u_time * 2.0) * sin(p.z * 16.0);
+        float shield_grid = smoothstep(0.15, 0.35, abs(plasma_wave));
 
-        albedo = mix(cyan, magenta, pulse * 0.6 + (p.y * 0.5 + 0.5) * 0.4);
-        albedo = mix(albedo * 0.35, albedo, grid_mask);
-        spec_strength = 1.3;
-        shininess = 64.0;
-        ambient = 0.65;
-        albedo += mix(magenta, cyan, pulse) * fresnel * 2.5;
+        vec3 core_color = mix(cyan, magenta, pulse * 0.6 + (p.y * 0.5 + 0.5) * 0.4);
+        albedo = mix(core_color * 0.45, core_color, shield_grid);
+
+        spec_strength = 1.6;
+        shininess = 96.0;
+
+        // Multi-color Fresnel energy halo (Cyan -> Magenta -> Gold)
+        vec3 rim_halo = mix(magenta, gold, pulse) * fresnel * 2.8;
+        albedo += rim_halo;
     }
 
-    float diff = NdotL;
-    float spec = pow(NdotH, shininess) * spec_strength;
-    vec3 color = (ambient + diff) * albedo + vec3(spec);
+    // ─── Dual Specular Highlights (Key + Fill) ────────────────
+    float spec_key = pow(max(dot(N, H_key), 0.0), shininess) * spec_strength;
+    float spec_fill = pow(max(dot(N, H_fill), 0.0), shininess * 0.75) * (spec_strength * 0.35);
+
+    // ─── Final Combined Radiance ─────────────────────────────
+    vec3 diffuse = (NdotL_key * key_color + NdotL_fill * fill_color + NdotL_rim * rim_color);
+    vec3 specular = (spec_key * key_color + spec_fill * fill_color);
+    vec3 color = (ambient_light + diffuse) * albedo + specular;
+
     fragColor = vec4(color, 1.0);
 }
 """
@@ -458,8 +557,9 @@ class GPURoomRenderer:
         is_hand_joint: bool = False,
         timestamp: float = 0.0,
         aspect: float = 1.0,
+        rotation: tuple[float, float, float] = (0.0, 0.0, 0.0),
     ) -> None:
-        """Render 3D sphere at world position with model transform, aspect compensation, and GLSL lighting."""
+        """Render 3D sphere at world position with model transform, 3D rotation, aspect compensation, and GLSL lighting."""
         wx, wy, wz = self._to_world_coords(x, y, z)
         # Isotropic aspect-corrected scaling:
         # In NDC space, X spans [-1, 1] across width W, Y spans [-1, 1] across height H.
@@ -469,20 +569,22 @@ class GPURoomRenderer:
         ry = radius * 2.0 * aspect
         rz = radius * 2.0
 
-        # Model matrix: Translate * Scale (row-major)
+        # Model matrix: Translate * AspectScale * 3D Rotation
+        rot_mat = make_rotation_matrix(rotation[0], rotation[1], rotation[2])
+        col0 = rot_mat[:, 0] * rx
+        col1 = rot_mat[:, 1] * ry
+        col2 = rot_mat[:, 2] * rz
+
         model_mat = np.array([
-            [rx,  0.0, 0.0, wx],
-            [0.0, ry,  0.0, wy],
-            [0.0, 0.0, rz,  wz],
-            [0.0, 0.0, 0.0, 1.0],
+            [col0[0], col1[0], col2[0], wx],
+            [col0[1], col1[1], col2[1], wy],
+            [col0[2], col1[2], col2[2], wz],
+            [0.0,     0.0,     0.0,     1.0],
         ], dtype=np.float32)
 
         # Normal matrix (inv transpose 3x3)
-        normal_mat = np.array([
-            [1.0 / max(1e-5, rx), 0.0, 0.0],
-            [0.0, 1.0 / max(1e-5, ry), 0.0],
-            [0.0, 0.0, 1.0 / max(1e-5, rz)],
-        ], dtype=np.float32)
+        scale_diag = np.diag([1.0 / max(1e-5, rx), 1.0 / max(1e-5, ry), 1.0 / max(1e-5, rz)])
+        normal_mat = np.dot(rot_mat, scale_diag).astype(np.float32)
 
         final_mvp = np.dot(mvp_mat, model_mat)
 
@@ -490,7 +592,6 @@ class GPURoomRenderer:
         self.sphere_prog["u_mvp"].write(final_mvp.T.copy().tobytes())
         self.sphere_prog["u_model"].write(model_mat.T.copy().tobytes())
         self.sphere_prog["u_normal_mat"].write(normal_mat.T.copy().tobytes())
-        self.sphere_prog["u_light_pos"].value = (0.3, 0.8, -0.7)
         self.sphere_prog["u_view_pos"].value = (0.0, 0.0, -1.0 / self.focal_depth)
         self.sphere_prog["u_skin"].value = int(skin)
         self.sphere_prog["u_time"].value = float(timestamp)
@@ -664,6 +765,7 @@ class GPURoomRenderer:
         elif skin == BallSkin.NEON or (isinstance(skin, str) and skin.lower() == "neon"):
             skin_id = 3
 
+        ball_rot = getattr(engine.ball, "rotation", (0.38, 0.55, 0.22))
         self._draw_sphere(
             bx, by, bz,
             radius=engine.ball.radius,
@@ -672,6 +774,7 @@ class GPURoomRenderer:
             is_hand_joint=False,
             timestamp=ts,
             aspect=aspect,
+            rotation=ball_rot,
         )
 
         # 7. Readout RGBA Frame from FBO
@@ -690,10 +793,7 @@ class GPURoomRenderer:
 
         frame[:] = rendered_bgr
 
-        # 8. Render Soft Floor Contact Shadow & Altitude Indicators
-        self.cpu_room_renderer._render_ball_spatial_indicators(frame, engine.ball, w, h)
-
-        # 9. Render Picture-in-Picture (PIP) live camera preview
+        # 8. Render Picture-in-Picture (PIP) live camera preview
         if self.show_pip and raw_webcam is not None:
             self.cpu_room_renderer._render_pip_webcam(frame, raw_webcam, w, h)
 

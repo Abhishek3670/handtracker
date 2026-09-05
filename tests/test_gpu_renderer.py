@@ -275,3 +275,27 @@ def test_gpu_floor_indicators_and_shadows():
     floor_pixel_y = int(0.95 * (360 - 1))
     assert np.any(frame[floor_pixel_y - 20:floor_pixel_y + 10, :] > 0)
 
+
+def test_make_rotation_matrix_and_spin_integration():
+    """Verify 3D rotation matrix construction and physics angular spin integration."""
+    from handtracking.ar.gpu_renderer import make_rotation_matrix
+
+    # Identity rotation at (0, 0, 0)
+    rot_id = make_rotation_matrix(0.0, 0.0, 0.0)
+    assert np.allclose(rot_id, np.eye(3), atol=1e-5)
+
+    # Orthogonality check R^T * R = I
+    rot_any = make_rotation_matrix(0.4, -0.7, 1.2)
+    assert np.allclose(np.dot(rot_any.T, rot_any), np.eye(3), atol=1e-5)
+    assert np.isclose(np.linalg.det(rot_any), 1.0, atol=1e-5)
+
+    # Verify physics spin integration on movement
+    engine = ARPhysicsEngine(enable_gravity=False)
+    engine.ball.position = (0.5, 0.5, 0.0)
+    engine.ball.velocity = (0.5, -0.2, 0.3)
+    init_rot = engine.ball.rotation
+
+    engine.step(hands=[], dt=0.016, timestamp=1.0)
+    assert engine.ball.rotation != init_rot
+
+

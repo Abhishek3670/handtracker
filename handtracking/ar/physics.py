@@ -45,6 +45,7 @@ class BallState:
     """3D rigid body state of the AR ball."""
     position: tuple[float, float, float] = (0.5, 0.3, 0.0)
     velocity: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    rotation: tuple[float, float, float] = (0.38, 0.55, 0.22)  # Initial natural 3D tilt (pitch, yaw, roll)
     radius: float = 0.055
     mass: float = 1.0
     restitution: float = 0.82
@@ -54,6 +55,7 @@ class BallState:
     def reset(self, x: float = 0.5, y: float = 0.3, z: float = 0.0) -> None:
         self.position = (float(x), float(y), float(z))
         self.velocity = (0.0, 0.0, 0.0)
+        self.rotation = (0.38, 0.55, 0.22)
         self.state = BallInteractionState.FREE_FLIGHT
         self.grabbed_hand_id = None
 
@@ -289,6 +291,14 @@ class ARPhysicsEngine:
 
         self.ball.position = (px, py, pz)
         self.ball.velocity = (vx, vy, vz)
+
+        # Dynamic angular spin integration
+        speed = math.sqrt(vx * vx + vy * vy + vz * vz)
+        if speed > 0.005:
+            rx = (self.ball.rotation[0] - vy * dt * 5.0) % (2.0 * math.pi)
+            ry = (self.ball.rotation[1] + vx * dt * 5.0) % (2.0 * math.pi)
+            rz = (self.ball.rotation[2] - vz * dt * 5.0) % (2.0 * math.pi)
+            self.ball.rotation = (rx, ry, rz)
 
         # 6. Update ripples
         self._update_ripples(ts)
