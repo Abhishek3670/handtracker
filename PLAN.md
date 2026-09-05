@@ -219,6 +219,14 @@ flowchart TD
   - Expose `use_gpu_render: bool` in `HandTrackingPipeline`.
   - Add CLI flag `--gpu-render` / `--gpu` in `demo.py` with GPU adapter telemetry.
 
+### Milestone 15: Fix GPU Shader MVP Matrix Layout, Transform Multiplication & Isotropic Sphere Geometry [COMPLETED]
+- [x] **Fix GLSL Vertex Shader Transform (`handtracking.ar.gpu_renderer`)**:
+  - In `SPHERE_VERTEX_SHADER`, set `gl_Position = u_mvp * vec4(in_pos, 1.0);` (preventing double `u_model` multiplication: `u_mvp * wp`).
+- [x] **Column-Major Matrix Memory Layout & Normalization (`handtracking.ar.gpu_renderer`)**:
+  - Transpose NumPy matrices (`.T.copy()`) before passing `.tobytes()` to GLSL `mat4` uniforms, ensuring translation vectors $(tx, ty, tz)$ reside in column 3 rather than row 3.
+  - Fix perspective projection matrix `make_ortho_or_perspective_matrix` to correctly place vanishing point divisor in row 3, column 2/3.
+  - Ensure sphere scale is isotropic (`rx = ry = rz = 2.0 * radius`) in world coordinates.
+
 ### Phase 3 / Future Extensions: Deep Learning Sequence Models [ON HOLD / DEFERRED]
 - [ ] Continuous American Sign Language (ASL) sentence recognition via Temporal Transformer / BiLSTM sequence models over 3D landmark streams.
 - [ ] Dense 3D Hand Mesh Estimation (e.g. MANO 778-vertex surface mesh via ONNX Runtime / DirectML GPU).
@@ -256,4 +264,6 @@ flowchart TD
 - **WO-014** (Milestone 13): Dynamic Monocular Hand Depth ($Z$) Estimation & Free 3D Spatial Movement.
   - **Worker**: `codex` | **QA**: `gemma` | **Status**: `COMPLETED` (Commit `121b619`)
 - **WO-015** (Milestone 14): Hardware-Accelerated ModernGL GPU Shader Engine for 3D Cyber Room & Mesh Shading.
+  - **Worker**: `codex` | **QA**: `gemma` | **Status**: `COMPLETED` (Commit `a56ff14`)
+- **WO-016** (Milestone 15): Fix GPU Shader MVP Matrix Layout, Transform Multiplication & Isotropic Sphere Geometry.
   - **Worker**: `codex` | **QA**: `gemma` | **Status**: `COMPLETED`
