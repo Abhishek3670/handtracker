@@ -10,7 +10,7 @@ try:
 except ImportError:
     cv2 = None
 
-from .ar import ARPhysicsEngine, BallRenderer, BallSkin
+from .ar import ARHeartEngine, ARPhysicsEngine, BallRenderer, BallSkin
 from .capture import AsyncWebcamCapture
 from .config import MediaConfig
 from .controllers import MediaController
@@ -35,6 +35,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--media", action="store_true", help="Enable touchless media and entertainment controller")
     p.add_argument("--config", default="config.yaml", help="Path to media controller configuration YAML/JSON file")
     p.add_argument("--ar-ball", "--ar", dest="ar_ball", action="store_true", help="Enable AR 3D interactive physics ball")
+    p.add_argument(
+        "--heart",
+        "-ht",
+        dest="heart",
+        action="store_true",
+        help="Enable AR Digital Baby-Pink Heart on Palm with dynamic open/close scaling",
+    )
     p.add_argument(
         "--virtual-room",
         "--virtual-space",
@@ -84,6 +91,7 @@ def main(argv: list[str] | None = None) -> int:
             media_ctrl = MediaController(config=media_cfg)
 
         ar_engine = ARPhysicsEngine() if args.ar_ball else None
+        heart_engine = ARHeartEngine(enabled=True) if args.heart else None
 
         pipe = HandTrackingPipeline(
             detector=BenchmarkDetector(),
@@ -93,6 +101,7 @@ def main(argv: list[str] | None = None) -> int:
             ar_physics=ar_engine,
             virtual_room=args.virtual_room,
             use_gpu_render=args.gpu_render,
+            heart_engine=heart_engine,
         )
         sample_frame = np.zeros((args.height or 480, args.width or 640, 3), dtype=np.uint8)
         for _ in range(max(0, args.benchmark)):
@@ -116,8 +125,12 @@ def main(argv: list[str] | None = None) -> int:
 
     ar_physics = ARPhysicsEngine() if args.ar_ball else None
     ar_renderer = BallRenderer(skin=BallSkin(args.ar_skin)) if args.ar_ball else None
+    heart_engine = ARHeartEngine(enabled=True) if args.heart else None
+
     if args.ar_ball:
         print(f"AR 3D Interactive Ball ENABLED (Skin: {args.ar_skin.title()}). Controls: 'v' 3D Space, 'u' GPU Shaders, 'b' Reset Ball, 's' Skins, 'g' Gravity.")
+    if args.heart:
+        print("AR Digital Baby-Pink Heart ENABLED. Controls: Open palm to expand | Close fist to shrink | 'k' Toggle Heart.")
 
     with (
         AsyncWebcamCapture(args.camera, width=args.width, height=args.height) as capture,
@@ -132,6 +145,7 @@ def main(argv: list[str] | None = None) -> int:
             ar_renderer=ar_renderer,
             virtual_room=args.virtual_room,
             use_gpu_render=args.gpu_render,
+            heart_engine=heart_engine,
         ) as pipe,
     ):
         if pipe.gpu_renderer is not None and pipe.gpu_renderer.is_gpu_available:
@@ -148,6 +162,8 @@ def main(argv: list[str] | None = None) -> int:
             print("Media Controls: Press 'w' to toggle wake/sleep | Press 'm' to toggle media HUD")
         if args.ar_ball:
             print("AR Ball Controls: Bounce with palm or fingertips | Pinch to grab & throw | 'v' 3D Space | 'u' GPU Shaders | 'b' Reset | 's' Skins | 'g' Gravity")
+        if args.heart:
+            print("AR Heart Controls: Open palm to expand | Close fist to shrink | 'k' Toggle Heart")
         start_wait = time.time()
         first_frame_shown = False
         while True:
@@ -167,6 +183,10 @@ def main(argv: list[str] | None = None) -> int:
                 key = cv2.waitKey(1) & 0xFF
                 if key == ord("q") or key == 27:  # 'q' or ESC
                     break
+                elif key == ord("k"):
+                    pipe.toggle_heart()
+                    status = "ENABLED" if (pipe.heart_engine is not None and pipe.heart_engine.enabled) else "DISABLED"
+                    print(f"AR Digital Baby-Pink Heart: {status}")
                 elif key == ord("c") and pipe.canvas is not None:
                     pipe.canvas.clear()
                     print("Canvas cleared!")

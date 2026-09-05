@@ -2,7 +2,14 @@
 from __future__ import annotations
 import time
 import numpy as np
-from .ar import ARPhysicsEngine, BallRenderer, BallSkin, GPURoomRenderer, Virtual3DRoomRenderer
+from .ar import (
+    ARHeartEngine,
+    ARPhysicsEngine,
+    BallRenderer,
+    BallSkin,
+    GPURoomRenderer,
+    Virtual3DRoomRenderer,
+)
 from .capture import AsyncWebcamCapture
 from .filtering import HandSmoother
 from .gestures import AirCanvas, GestureEventDispatcher, GestureRecognizer, TemporalGestureRecognizer
@@ -30,6 +37,7 @@ class HandTrackingPipeline:
         virtual_room: bool = False,
         use_gpu_render: bool = False,
         gpu_renderer: GPURoomRenderer | None = None,
+        heart_engine: ARHeartEngine | None = None,
     ):
         self.capture = capture
         self.detector = detector
@@ -49,6 +57,7 @@ class HandTrackingPipeline:
         self.virtual_room = virtual_room
         self.use_gpu_render = use_gpu_render
         self.gpu_renderer = gpu_renderer or (GPURoomRenderer(prefer_gpu=True) if ar_physics is not None else None)
+        self.heart_engine = heart_engine
 
     def toggle_virtual_room(self) -> bool:
         """Toggle 3D digital cyber room rendering mode."""
@@ -59,6 +68,13 @@ class HandTrackingPipeline:
         """Toggle hardware-accelerated GPU shader rendering mode."""
         self.use_gpu_render = not self.use_gpu_render
         return self.use_gpu_render
+
+    def toggle_heart(self) -> bool:
+        """Toggle AR digital baby-pink heart rendering on palm."""
+        if self.heart_engine is None:
+            self.heart_engine = ARHeartEngine(enabled=True)
+            return True
+        return self.heart_engine.toggle()
 
     def process_frame(self, frame):
         started = time.perf_counter()
@@ -93,6 +109,9 @@ class HandTrackingPipeline:
 
         if self.ar_physics is not None:
             self.ar_physics.step(smoothed, gestures, timestamp=timestamp)
+
+        if self.heart_engine is not None and self.heart_engine.enabled:
+            self.heart_engine.step(smoothed, timestamp=timestamp)
 
         gesture_ms = (time.perf_counter() - gesture_start) * 1000
 
@@ -132,6 +151,7 @@ class HandTrackingPipeline:
             ar_active=(self.ar_physics is not None),
             media_active=(self.media_controller is not None),
             canvas_active=(self.canvas is not None),
+            heart_active=(self.heart_engine is not None and self.heart_engine.enabled),
         )
         if self.canvas:
             self.canvas.render(output)
@@ -144,6 +164,15 @@ class HandTrackingPipeline:
                 smoothed,
                 timestamp=timestamp,
                 virtual_room=self.virtual_room,
+                projection_fn=proj_fn,
+                focal_depth=focal_depth,
+            )
+        if self.heart_engine is not None and self.heart_engine.enabled:
+            proj_fn = self.room_renderer.project_3d if self.virtual_room and self.room_renderer is not None else None
+            focal_depth = getattr(self.room_renderer, "focal_depth", 0.85) if self.room_renderer is not None else 0.85
+            self.heart_engine.draw(
+                output,
+                timestamp=timestamp,
                 projection_fn=proj_fn,
                 focal_depth=focal_depth,
             )

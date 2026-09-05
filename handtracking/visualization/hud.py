@@ -41,6 +41,7 @@ class HUDOverlay:
         ar_active: bool = False,
         media_active: bool = False,
         canvas_active: bool = False,
+        heart_active: bool = False,
     ):
         if not self.enabled:
             return frame
@@ -96,7 +97,14 @@ class HUDOverlay:
         self.draw_notifications(frame, timestamp=now)
         
         if self.show_instructions:
-            self.draw_instructions(frame, mode=mode, ar_active=ar_active, media_active=media_active, canvas_active=canvas_active)
+            self.draw_instructions(
+                frame,
+                mode=mode,
+                ar_active=ar_active,
+                media_active=media_active,
+                canvas_active=canvas_active,
+                heart_active=heart_active,
+            )
             
         if self.show_help:
             self.draw_help_modal(frame)
@@ -148,9 +156,12 @@ class HUDOverlay:
         ar_active: bool = False,
         media_active: bool = False,
         canvas_active: bool = False,
+        heart_active: bool = False,
     ):
         """Render context-aware interactive instruction bar at the bottom of the screen."""
-        if ar_active or mode == "ar":
+        if heart_active or mode == "heart":
+            text = "AR Heart: Open Palm=Expand | Fist=Shrink | k=Toggle Heart  [h: Help | q: Exit]"
+        elif ar_active or mode == "ar":
             text = "AR Ball: Palm=Bounce | Pinch=Grab/Throw | v=3D Space | u=GPU | b=Reset | s=Skin | g=Grav  [h: Help | q: Exit]"
         elif media_active or mode == "media":
             text = "Media: Hold 1s=Wake | Circle=Vol +/- | Peace=Play/Pause | Swipe=Track | w=Wake  [h: Help | q: Exit]"
@@ -221,6 +232,7 @@ class HUDOverlay:
                 ("[ KEYBOARD SHORTCUTS ]", (255, 120, 220)),
                 ("  - 'h' : Toggle this Help Cheat Sheet", (220, 220, 220)),
                 ("  - 'q' / ESC : Exit Application", (220, 220, 220)),
+                ("  - 'k' : Toggle AR Digital Baby-Pink Heart on Palm", (220, 220, 220)),
                 ("  - 'v' : Toggle 3D Space (AR)  |  'u' : Toggle GPU Shaders", (220, 220, 220)),
                 ("  - 'b' : Reset AR Ball  |  's' : Cycle Skins  |  'g' : Gravity", (220, 220, 220)),
                 ("  - 'w' : Force Media Wake / Sleep  |  'm' : Toggle Media HUD", (220, 220, 220)),
