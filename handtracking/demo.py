@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 import time
 
 try:
@@ -10,9 +11,11 @@ except ImportError:
     cv2 = None
 
 from .capture import AsyncWebcamCapture
+from .config import MediaConfig
+from .controllers import MediaController
+from .gestures import AirCanvas, TemporalGestureRecognizer
 from .inference import create_detector, DetectionResult
 from .pipeline import HandTrackingPipeline
-from .gestures import AirCanvas, TemporalGestureRecognizer
 
 
 def _parse_camera(val: str) -> int | str:
@@ -28,6 +31,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--canvas", action="store_true", help="Enable air canvas")
     p.add_argument("--temporal", action="store_true", default=True, help="Enable dynamic temporal gesture engine")
     p.add_argument("--no-temporal", dest="temporal", action="store_false", help="Disable dynamic temporal gestures")
+    p.add_argument("--media", action="store_true", help="Enable touchless media and entertainment controller")
+    p.add_argument("--config", default="config.yaml", help="Path to media controller configuration YAML/JSON file")
     p.add_argument("--no-smoothing", action="store_true", help="Disable 1 Euro adaptive smoothing")
     p.add_argument("--mirror", action="store_true", default=True, help="Mirror webcam display horizontally")
     p.add_argument("--no-mirror", dest="mirror", action="store_false", help="Disable mirror mode")
@@ -46,7 +51,17 @@ def main(argv: list[str] | None = None) -> int:
             def detect(self, frame: np.ndarray) -> DetectionResult:
                 return DetectionResult()
 
-        pipe = HandTrackingPipeline(detector=BenchmarkDetector(), smoothing=not args.no_smoothing, temporal=TemporalGestureRecognizer() if args.temporal else None)
+        media_ctrl = None
+        if args.media:
+            media_cfg = MediaConfig.load(args.config)
+            media_ctrl = MediaController(config=media_cfg)
+
+        pipe = HandTrackingPipeline(
+            detector=BenchmarkDetector(),
+            smoothing=not args.no_smoothing,
+            temporal=TemporalGestureRecognizer() if args.temporal else None,
+            media_controller=media_ctrl,
+        )
         sample_frame = np.zeros((args.height or 480, args.width or 640, 3), dtype=np.uint8)
         for _ in range(max(0, args.benchmark)):
             pipe.process_frame(sample_frame)
@@ -57,6 +72,16 @@ def main(argv: list[str] | None = None) -> int:
         print("OpenCV (cv2) is required for live GUI display. Please install opencv-python.")
         return 1
 
+    media_controller = None
+    if args.media:
+        config_path = Path(args.config)
+        if not config_path.exists():
+            print(f"Generating default media controller configuration at: {config_path}")
+            MediaConfig.create_default(config_path)
+        media_cfg = MediaConfig.load(config_path)
+        media_controller = MediaController(config=media_cfg)
+        print(f"Touchless Media Controller ENABLED. Wake gesture: '{media_cfg.wake_gesture}' (Hold 1.0s to wake).")
+
     with (
         AsyncWebcamCapture(args.camera, width=args.width, height=args.height) as capture,
         HandTrackingPipeline(
@@ -65,12 +90,17 @@ def main(argv: list[str] | None = None) -> int:
             smoothing=not args.no_smoothing,
             temporal=TemporalGestureRecognizer() if args.temporal else None,
             canvas=AirCanvas() if args.canvas else None,
+            media_controller=media_controller,
         ) as pipe,
     ):
         window_name = "HandTracking (Press 'q' to exit)"
         if not args.headless and cv2 is not None:
             cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
         print(f"HandTracking live feed started (Camera: {args.camera}, {args.width}x{args.height}). Press 'q' to exit.")
+        if args.canvas:
+            print("Air Canvas Controls: Pinch index+thumb to draw | Press 'c' to clear canvas | Press '1'-'4' for colors (Green, Blue, Red, Yellow)")
+        if args.media:
+            print("Media Controls: Press 'w' to toggle wake/sleep | Press 'm' to toggle media HUD")
         start_wait = time.time()
         first_frame_shown = False
         while True:
@@ -90,6 +120,28 @@ def main(argv: list[str] | None = None) -> int:
                 key = cv2.waitKey(1) & 0xFF
                 if key == ord("q") or key == 27:  # 'q' or ESC
                     break
+                elif key == ord("c") and pipe.canvas is not None:
+                    pipe.canvas.clear()
+                    print("Canvas cleared!")
+                elif key == ord("w") and pipe.media_controller is not None:
+                    if pipe.media_controller.state_machine.is_active:
+                        pipe.media_controller.state_machine.sleep()
+                        print("Media controller forced to SLEEPING.")
+                    else:
+                        pipe.media_controller.state_machine.wake()
+                        print("Media controller forced to ACTIVE.")
+                elif key == ord("m") and pipe.media_hud is not None:
+                    pipe.media_hud.enabled = not pipe.media_hud.enabled
+                    print(f"Media HUD overlay enabled: {pipe.media_hud.enabled}")
+                elif pipe.canvas is not None:
+                    if key == ord("1"):
+                        pipe.canvas.set_color((0, 255, 0))  # Green
+                    elif key == ord("2"):
+                        pipe.canvas.set_color((255, 0, 0))  # Blue
+                    elif key == ord("3"):
+                        pipe.canvas.set_color((0, 0, 255))  # Red
+                    elif key == ord("4"):
+                        pipe.canvas.set_color((0, 255, 255))  # Yellow
         if not args.headless and cv2 is not None:
             cv2.destroyAllWindows()
     return 0

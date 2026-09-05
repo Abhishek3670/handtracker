@@ -1,0 +1,11 @@
+wake_gesture: open_palm
+wake_duration_s: 1.0
+idle_timeout_s: 4.0
+volume_step: 2
+actions:
+  circle_cw: volume_up
+  circle_ccw: volume_down
+  peace_sign: play_pause
+  swipe_right: next_track
+  swipe_left: prev_track
+  fist: mute

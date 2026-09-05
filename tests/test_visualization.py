@@ -1,7 +1,8 @@
 import numpy as np
 from types import SimpleNamespace
-from handtracking.visualization import HUDOverlay, PipelineTelemetry, StageLatency, StageTimer
+from handtracking.visualization import HUDOverlay, MediaHUDOverlay, PipelineTelemetry, StageLatency, StageTimer
 from handtracking.inference.models import BoundingBox, HandLandmarks, Handedness, Landmark3D
+from handtracking.controllers import ControllerStateMachine, KeySynthesizer, MediaController
 
 def make_hand():
     points = tuple(Landmark3D(.2 + i*.01, .2 + i*.005, 0) for i in range(21))
@@ -42,3 +43,27 @@ def test_hud_temporal_gesture_notifications():
     frame2 = np.zeros((100, 100, 3), dtype=np.uint8)
     hud.draw(frame2, timestamp=20.0)
     assert len(hud.notifications) == 0
+
+
+def test_media_hud_overlay_renders_all_states():
+    frame = np.zeros((200, 400, 3), dtype=np.uint8)
+    media_hud = MediaHUDOverlay()
+    ctrl = MediaController(synthesizer=KeySynthesizer(dry_run=True), initial_volume=60)
+
+    # 1. Sleeping state render
+    out1 = media_hud.draw(frame, ctrl, timestamp=10.0)
+    assert out1 is frame and int(frame.sum()) > 0
+
+    # 2. Waking state render (with progress ring)
+    frame.fill(0)
+    ctrl.state_machine.update(["open_palm"], timestamp=10.0)
+    ctrl.state_machine.update(["open_palm"], timestamp=10.5)
+    out2 = media_hud.draw(frame, ctrl, timestamp=10.5)
+    assert out2 is frame and int(frame.sum()) > 0
+
+    # 3. Active state render with radial volume dial & toast
+    frame.fill(0)
+    ctrl.state_machine.wake(timestamp=11.0)
+    ctrl.set_toast("Volume Up 🔊 65%", duration=1.5, timestamp=11.0)
+    out3 = media_hud.draw(frame, ctrl, timestamp=11.0)
+    assert out3 is frame and int(frame.sum()) > 0

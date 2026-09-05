@@ -114,6 +114,44 @@ flowchart TD
 - [x] Dynamic Wave / Oscillation and Circle Detection (Clockwise / Counter-Clockwise).
 - [x] Integration with `GestureEventDispatcher` and live interactive HUD controls in `demo.py`.
 
+### Milestone 7: Touchless Media & Entertainment Controller (`--media`) [COMPLETED]
+- [x] **Declarative Config & Remapping Engine (`handtracking.config`)**:
+  - `config.yaml` and `settings.json` loader with schema validation and sensible defaults.
+  - User-configurable gesture-to-action mapping table (e.g. `circle_cw -> volume_up`, `circle_ccw -> volume_down`, `swipe_right -> next_track`, `swipe_left -> prev_track`, `peace_sign -> play_pause`, `fist -> mute`).
+  - Configurable wake gesture, hold duration (`wake_duration_s: 1.0`), idle timeout (`idle_timeout_s: 4.0`), and volume step size.
+- [x] **Activation Pose & Wake/Sleep State Machine (`handtracking.controllers.state_machine`)**:
+  - State machine: `SLEEPING` <-> `WAKING (0..100% hold progress)` <-> `ACTIVE`.
+  - 1-second continuous hold to wake; automatic sleep after idle timeout to eliminate false triggers.
+- [x] **Low-Overhead Native OS Media Synthesizer (`handtracking.controllers.synthesizer`)**:
+  - Direct Windows `user32.keybd_event` / SendInput for zero-lag hardware media keys (`VK_VOLUME_UP`, `VK_VOLUME_DOWN`, `VK_MEDIA_PLAY_PAUSE`, `VK_MEDIA_NEXT_TRACK`, `VK_MEDIA_PREV_TRACK`, `VK_VOLUME_MUTE`) and custom key combinations.
+  - Cross-platform mockable dry-run interface for test environments.
+- [x] **Minimal Transparent Floating HUD & Radial Volume Dial (`handtracking.visualization.media_hud`)**:
+  - Transparent floating HUD banner with live status badge (`💤 SLEEPING` vs `🟢 ACTIVE`).
+  - Circular / radial arc volume dial rendering with animated fill and level indicators.
+  - Radial wake progress ring filling smoothly during the 1-second hold.
+  - Action toast notifications (`[Action: Volume Up 🔊 65%]`, `[Action: Play/Pause ⏯️]`).
+- [x] **CLI & Pipeline Integration**:
+  - `--media` and `--config config.yaml` flags in `demo.py`.
+  - In-app hotkey toggle (`m` to toggle media controller, `w` to toggle wake/sleep).
+
+### Milestone 8: Augmented Reality (AR) 3D Physics & Photorealistic Ball Engine [PLANNED]
+- [ ] **3D Hand Physics Colliders (`handtracking.ar.colliders`)**:
+  - Palm Plane Collider derived from Wrist (0), Index MCP (5), and Pinky MCP (17) triangles.
+  - Spherical Fingertip Colliders for all 5 fingertips (Thumb, Index, Middle, Ring, Pinky).
+  - 3D Hand Velocity Estimator ($\vec{v} = \Delta \vec{p} / \Delta t$) for momentum transfer during hits, tosses, and bounces.
+- [ ] **Real-Time 3D Rigid-Body Physics Engine (`handtracking.ar.physics`)**:
+  - 60 FPS numerical integrator (Verlet / Symplectic Euler) simulating 3D gravity, velocity damping, air drag, and bounce restitution ($e = 0.82$).
+  - Interaction states: Free Flight, Palm Bouncing, Fingertip Volley, and Pinch-to-Grab / Throw.
+  - Screen boundary and viewport elastic collisions.
+- [ ] **Photorealistic 3D Ball Renderer & Shading (`handtracking.ar.renderer`)**:
+  - Blinn-Phong directional shading (ambient, diffuse, and sharp specular highlights with configurable light source).
+  - Material skins: Basketball, Chrome Mirror Sphere, Tennis Ball, and Glowing Neon Orb.
+  - Dynamic contact drop shadow projected onto palm surface and floor.
+  - Visual impact ripple rings and speed trail particles on high-velocity throws.
+- [ ] **CLI & Interactive Controls**:
+  - CLI flag `--ar-ball` / `--mode ar`.
+  - In-app hotkeys: `b` to spawn/reset ball, `s` to cycle ball skins, `g` to toggle gravity.
+
 ### Phase 3 / Future Extensions: Deep Learning Sequence Models [ON HOLD / DEFERRED]
 - [ ] Continuous American Sign Language (ASL) sentence recognition via Temporal Transformer / BiLSTM sequence models over 3D landmark streams.
 - [ ] Dense 3D Hand Mesh Estimation (e.g. MANO 778-vertex surface mesh via ONNX Runtime / DirectML GPU).
@@ -135,4 +173,8 @@ flowchart TD
 - **WO-006** (Bugfix): Camera device string-to-int parsing and DirectShow backend fallback.
   - **Worker**: `codex` | **QA**: `gemma` | **Status**: `COMPLETED` (Commit `3779e58`)
 - **WO-007** (Milestone 6): Model Complexity Toggle & Dynamic 3D Temporal Gesture Engine (Swipes, Air Canvas, Circles).
+  - **Worker**: `codex` | **QA**: `gemma` | **Status**: `COMPLETED` (Commit `cf8a1ad`)
+- **WO-008** (Milestone 7): Touchless Media & Entertainment Controller (Wake State Machine, Config YAML, Radial Volume Dial & Media Key Synthesizer).
   - **Worker**: `codex` | **QA**: `gemma` | **Status**: `COMPLETED`
+- **WO-009** (Milestone 8): Augmented Reality (AR) 3D Physics & Photorealistic Ball Engine (Palm Bouncing, Grab & Throw, Shading & Skins).
+  - **Worker**: `codex` | **QA**: `gemma` | **Status**: `PLANNED` (Queued after WO-008)

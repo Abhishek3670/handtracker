@@ -1,10 +1,12 @@
 import numpy as np
 from types import SimpleNamespace
+from handtracking.config import MediaConfig
+from handtracking.controllers import KeySynthesizer, MediaController
 from handtracking.inference import DetectionResult
 from handtracking.inference.models import BoundingBox, HandLandmarks, Handedness, Landmark3D
 from handtracking.pipeline import HandTrackingPipeline
 from handtracking.gestures import AirCanvas, GestureRecognizer, GestureResult, GestureType, TemporalGestureRecognizer
-from handtracking.visualization import HUDOverlay
+from handtracking.visualization import HUDOverlay, MediaHUDOverlay
 
 
 class Detector:
@@ -57,4 +59,29 @@ def test_pipeline_with_temporal_and_canvas():
     assert out_frame is frame
     # Verify temporal recognition populated HUD notifications
     assert any("Swipe Right" in n.text for n in hud.notifications)
+    pipe.close()
+
+
+def test_pipeline_with_media_controller():
+    class FakeDetector:
+        def detect(self, frame):
+            return DetectionResult(
+                hands=(make_test_hand(x=0.5, y=0.5),),
+                timestamp=1.0,
+            )
+
+    synthesizer = KeySynthesizer(dry_run=True)
+    media_ctrl = MediaController(synthesizer=synthesizer, initial_volume=70)
+    media_ctrl.state_machine.wake(timestamp=0.5)
+
+    pipe = HandTrackingPipeline(
+        detector=FakeDetector(),
+        media_controller=media_ctrl,
+        smoothing=False,
+    )
+
+    frame = np.zeros((100, 100, 3), dtype=np.uint8)
+    out_frame, gestures, telemetry = pipe.process_frame(frame)
+    assert out_frame is frame
+    assert pipe.media_hud is not None
     pipe.close()
