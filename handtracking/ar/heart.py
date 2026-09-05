@@ -30,10 +30,11 @@ class HeartState:
     pulse_phase: float = 0.0
     hand_id: Any | None = None
     is_visible: bool = False
+    is_activated: bool = False
     alpha: float = 1.0
-    min_scale: float = 0.15
+    min_scale: float = 0.075
     max_scale: float = 1.0
-    base_radius: float = 0.070
+    base_radius: float = 0.140
     color_bgr: tuple[int, int, int] = (193, 182, 255)       # Baby Pink #FFB6C1
     core_color_bgr: tuple[int, int, int] = (220, 210, 255)  # Pastel Light Pink
     glow_color_bgr: tuple[int, int, int] = (190, 120, 255)  # Radiant Aura Pink
@@ -42,6 +43,29 @@ class HeartState:
 
 class PalmOpennessEstimator:
     """Computes continuous, smooth palm openness ratio in [0.0, 1.0] from 5-finger tip distances."""
+
+    @staticmethod
+    def is_palm_facing_camera(hand: HandLandmarks) -> bool:
+        """
+        Check whether the front palmar surface (inside palm) is facing the camera.
+        Returns False when the dorsal surface (back of hand / knuckles) faces the camera.
+        """
+        lm = hand.landmarks
+        if len(lm) < 21:
+            return True
+
+        p0 = (lm[0].x, lm[0].y)
+        p5 = (lm[5].x, lm[5].y)
+        p17 = (lm[17].x, lm[17].y)
+
+        # 2D cross product of (P5 - P0) x (P17 - P0)
+        cross_z = (p5[0] - p0[0]) * (p17[1] - p0[1]) - (p5[1] - p0[1]) * (p17[0] - p0[0])
+
+        label = hand.handedness.label.strip().title() if hand.handedness else "Right"
+        if label == "Right":
+            return cross_z < 0.002
+        else:
+            return cross_z > -0.002
 
     @staticmethod
     def compute_openness(hand: HandLandmarks) -> float:
@@ -88,15 +112,16 @@ class PalmOpennessEstimator:
         return max(0.0, min(1.0, float(openness)))
 
 
+
 def generate_heart_mesh_2d(num_points: int = 48) -> list[tuple[float, float]]:
     """
-    Generate parametric 2D normalized heart vertices centered at origin.
+    Generate parametric 2D normalized heart vertices centered at its visual area centroid.
     Returns array of (x, y) coordinates with x, y in [-1.0, 1.0].
     """
     points = []
     # Parametric equations:
     # x(t) = 16 * sin^3(t)  -> range [-16, 16]
-    # y(t) = -(13 * cos(t) - 5 * cos(2t) - 2 * cos(3t) - cos(4t))  -> range [-9.5, 17]
+    # y(t) = -(13 * cos(t) - 5 * cos(2t) - 2 * cos(3t) - cos(4t))
     for i in range(num_points):
         t = 2.0 * math.pi * i / num_points
         sin_t = math.sin(t)
@@ -105,11 +130,13 @@ def generate_heart_mesh_2d(num_points: int = 48) -> list[tuple[float, float]]:
         x = 16.0 * (sin_t ** 3)
         y = -(13.0 * cos_t - 5.0 * math.cos(2.0 * t) - 2.0 * math.cos(3.0 * t) - math.cos(4.0 * t))
 
-        # Normalize to [-1.0, 1.0] centered at visual origin
+        # Normalize to [-1.0, 1.0] and align visual area centroid directly to (0, 0)
         norm_x = x / 16.0
-        norm_y = (y - 2.54) / 14.46
+        norm_y = (y + 0.823) / 17.823
         points.append((norm_x, norm_y))
     return points
+
+
 
 
 _HEART_CONTOUR_2D = generate_heart_mesh_2d(48)
@@ -121,9 +148,9 @@ class ARHeartEngine:
     def __init__(
         self,
         enabled: bool = True,
-        min_scale: float = 0.15,
+        min_scale: float = 0.075,
         max_scale: float = 1.0,
-        base_radius: float = 0.070,
+        base_radius: float = 0.140,
         pulse_bpm: float = 75.0,
     ):
         self.enabled = enabled
@@ -152,10 +179,11 @@ class ARHeartEngine:
     def reset(self) -> None:
         """Reset heart state."""
         self.state.is_visible = False
+        self.state.is_activated = False
         self.state.scale = self.state.max_scale
         self.state.target_scale = self.state.max_scale
         self.state.openness = 1.0
-        self.state.alpha = 1.0
+        self.state.alpha = 0.0
         self._last_timestamp = None
 
     def step(self, hands: Iterable[HandLandmarks] = (), timestamp: float | None = None) -> HeartState:
@@ -171,26 +199,54 @@ class ARHeartEngine:
             self.state.alpha = max(0.0, self.state.alpha - dt * 4.0)
             if self.state.alpha <= 0.01:
                 self.state.is_visible = False
+                self.state.is_activated = False
             return self.state
 
         # Track first available hand
         hand = hands_list[0]
         lm = hand.landmarks
         self.state.hand_id = hand.handedness.label
+
+        # 1. Check whether palm faces camera (suppress when showing back of hand)
+        palm_facing = PalmOpennessEstimator.is_palm_facing_camera(hand)
+        if not palm_facing:
+            # Back of hand is facing camera -> immediately fade out and deactivate
+            self.state.alpha = max(0.0, self.state.alpha - dt * 10.0)
+            if self.state.alpha <= 0.01:
+                self.state.is_visible = False
+                self.state.is_activated = False
+            return self.state
+
+        # 2. Continuous Palm Openness Estimation
+        raw_openness = PalmOpennessEstimator.compute_openness(hand)
+
+        # Heart appears on open palm only
+        if not self.state.is_activated:
+            if raw_openness >= 0.55:
+                self.state.is_activated = True
+                self.state.is_visible = True
+            else:
+                # Hand is present but not yet an open palm -> remain hidden
+                self.state.alpha = max(0.0, self.state.alpha - dt * 6.0)
+                if self.state.alpha <= 0.01:
+                    self.state.is_visible = False
+                return self.state
+
         self.state.is_visible = True
         self.state.alpha = min(1.0, self.state.alpha + dt * 6.0)
 
-        # 1. Compute Palm Center & Normal Vector
+
+        # 2. Compute Geometric Center of Palm Pad
         z_offset = estimate_hand_depth(hand)
         p0 = (lm[0].x, lm[0].y, z_offset + lm[0].z)
         p5 = (lm[5].x, lm[5].y, z_offset + lm[5].z)
         p9 = (lm[9].x, lm[9].y, z_offset + lm[9].z)
-        p13 = (lm[13].x, lm[13].y, z_offset + lm[13].z)
         p17 = (lm[17].x, lm[17].y, z_offset + lm[17].z)
 
-        cx = (p0[0] + p5[0] + p9[0] + p13[0] + p17[0]) / 5.0
-        cy = (p0[1] + p5[1] + p9[1] + p13[1] + p17[1]) / 5.0
-        cz = (p0[2] + p5[2] + p9[2] + p13[2] + p17[2]) / 5.0
+        # True center of the palm pad: intersection of wrist-to-middle and index-to-pinky lines
+        cx = 0.5 * (0.5 * (p0[0] + p9[0]) + 0.5 * (p5[0] + p17[0]))
+        cy = 0.5 * (0.5 * (p0[1] + p9[1]) + 0.5 * (p5[1] + p17[1]))
+        cz = 0.5 * (0.5 * (p0[2] + p9[2]) + 0.5 * (p5[2] + p17[2]))
 
         v1 = _sub(p5, p0)
         v2 = _sub(p17, p0)
@@ -200,13 +256,12 @@ class ARHeartEngine:
             norm = _scale(norm, -1.0)
         self.state.normal = norm
 
-        # Float slightly above palm center along normal
-        float_offset = _scale(norm, 0.025)
-        target_pos = (cx + float_offset[0], cy + float_offset[1], cz + float_offset[2])
+        # Direct palm center position without lateral offset drift
+        target_pos = (cx, cy, cz)
         self.state.target_position = target_pos
 
-        # Exponential smoothing for position
-        pos_alpha = 1.0 - math.exp(-18.0 * dt)
+        # Exponential smoothing for position (responsive tracking)
+        pos_alpha = 1.0 - math.exp(-22.0 * dt)
         cur_pos = self.state.position
         self.state.position = (
             cur_pos[0] + (target_pos[0] - cur_pos[0]) * pos_alpha,
@@ -214,21 +269,19 @@ class ARHeartEngine:
             cur_pos[2] + (target_pos[2] - cur_pos[2]) * pos_alpha,
         )
 
-        # 2. Continuous Palm Openness Estimation
-        raw_openness = PalmOpennessEstimator.compute_openness(hand)
-        # Smooth openness metric
+        # 3. Smooth Openness Metric
         open_alpha = 1.0 - math.exp(-16.0 * dt)
         self.state.openness += (raw_openness - self.state.openness) * open_alpha
         self.state.openness = max(0.0, min(1.0, self.state.openness))
 
-        # 3. Dynamic Scale Interpolation
+        # 4. Dynamic Scale Interpolation
         target_s = self.state.min_scale + self.state.openness * (self.state.max_scale - self.state.min_scale)
         self.state.target_scale = target_s
 
         scale_alpha = 1.0 - math.exp(-14.0 * dt)
         self.state.scale += (target_s - self.state.scale) * scale_alpha
 
-        # 4. Rhythmic Organic Heartbeat Pulse
+        # 5. Rhythmic Organic Heartbeat Pulse
         omega = 2.0 * math.pi * (self.pulse_bpm / 60.0)
         self.state.pulse_phase += omega * dt
         if self.state.pulse_phase > 2.0 * math.pi * 100.0:
@@ -254,24 +307,25 @@ class ARHeartEngine:
         # 1. Screen Projection
         if projection_fn is not None:
             px, py = projection_fn(pos[0], pos[1], pos[2], w, h)
+            depth_scale = 1.0
         else:
-            # Perspective scaling with depth
+            # Direct 2D screen coordinate mapping pinned to landmark palm center
+            px = round(pos[0] * (w - 1))
+            py = round(pos[1] * (h - 1))
+            # Depth scaling modulates size, not 2D screen position
             depth_scale = 1.0 / max(0.35, 1.0 + pos[2] * focal_depth)
-            px = round((0.5 + (pos[0] - 0.5) * depth_scale) * (w - 1))
-            py = round((0.5 + (pos[1] - 0.5) * depth_scale) * (h - 1))
 
-        if not (-100 <= px < w + 100 and -100 <= py < h + 100):
+        if not (-150 <= px < w + 150 and -150 <= py < h + 150):
             return frame
 
-        # 2. Compute Animated Heart Radius with Heartbeat Pulse
-        # Realistic double-beat pulse: lub-dub waveform
+        # 2. Compute Animated Heart Radius with Heartbeat Pulse & Depth Scale
         phase = self.state.pulse_phase
         lub_dub = math.sin(phase) + 0.35 * math.sin(2.0 * phase - 0.5)
         pulse_amp = 0.05 * self.state.openness  # Pulsing dampens when closed into seed
         effective_scale = self.state.scale * (1.0 + pulse_amp * lub_dub)
 
         base_px_radius = self.state.base_radius * min(w, h)
-        radius = max(6.0, base_px_radius * effective_scale)
+        radius = max(6.0, base_px_radius * effective_scale * depth_scale)
 
         if cv2 is None:
             # Fallback direct pixel dot
@@ -320,13 +374,14 @@ class ARHeartEngine:
         overlay = frame.copy()
         cv2.fillPoly(overlay, [poly_main], self.state.color_bgr, cv2.LINE_AA)
         
-        # Inner lighter pastel core
+        # Inner lighter pastel core (concentric)
         r_inner = radius * 0.68
         poly_inner = np.array(
-            [(round(cx + pt[0] * r_inner), round(cy + pt[1] * r_inner - radius * 0.05)) for pt in _HEART_CONTOUR_2D],
+            [(round(cx + pt[0] * r_inner), round(cy + pt[1] * r_inner)) for pt in _HEART_CONTOUR_2D],
             dtype=np.int32,
         )
         cv2.fillPoly(overlay, [poly_inner], self.state.core_color_bgr, cv2.LINE_AA)
+
 
         # Smooth border outline
         cv2.polylines(overlay, [poly_main], isClosed=True, color=(240, 210, 255), thickness=max(1, round(radius * 0.04)), lineType=cv2.LINE_AA)

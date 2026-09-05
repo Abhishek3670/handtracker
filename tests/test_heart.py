@@ -14,37 +14,64 @@ from handtracking.inference.models import BoundingBox, HandLandmarks, Handedness
 from handtracking.pipeline import HandTrackingPipeline
 
 
-def make_synthetic_hand(is_open: bool = True, center_x: float = 0.5, center_y: float = 0.5, z: float = 0.0) -> HandLandmarks:
-    """Create synthetic open palm or closed fist landmarks."""
+def make_synthetic_hand(
+    is_open: bool = True,
+    facing_palm: bool = True,
+    handedness: str = "Right",
+    center_x: float = 0.5,
+    center_y: float = 0.5,
+    z: float = 0.0,
+) -> HandLandmarks:
+    """Create synthetic open palm or closed fist landmarks with front/back orientation."""
     points = [Landmark3D(center_x, center_y, z)] * 21
 
     # Wrist
     points[0] = Landmark3D(center_x, center_y + 0.12, z)
 
-    # MCP bases
-    points[1] = Landmark3D(center_x - 0.04, center_y + 0.06, z)
-    points[2] = Landmark3D(center_x - 0.06, center_y + 0.03, z)
-    points[5] = Landmark3D(center_x - 0.04, center_y - 0.02, z)
-    points[9] = Landmark3D(center_x, center_y - 0.03, z)
-    points[13] = Landmark3D(center_x + 0.03, center_y - 0.02, z)
-    points[17] = Landmark3D(center_x + 0.05, center_y + 0.01, z)
+    # Determine lateral orientation (Index vs Pinky) based on handedness and palmar/dorsal side
+    is_index_right = (handedness == "Right" and facing_palm) or (handedness == "Left" and not facing_palm)
 
-    if is_open:
-        # Extended finger tips (far from palm/wrist)
-        points[4] = Landmark3D(center_x - 0.12, center_y - 0.02, z)   # Thumb tip
-        points[8] = Landmark3D(center_x - 0.05, center_y - 0.18, z)   # Index tip
-        points[12] = Landmark3D(center_x, center_y - 0.20, z)         # Middle tip
-        points[16] = Landmark3D(center_x + 0.04, center_y - 0.18, z)  # Ring tip
-        points[20] = Landmark3D(center_x + 0.08, center_y - 0.15, z)  # Pinky tip
+    if is_index_right:
+        points[1] = Landmark3D(center_x + 0.04, center_y + 0.06, z)
+        points[2] = Landmark3D(center_x + 0.06, center_y + 0.03, z)
+        points[5] = Landmark3D(center_x + 0.04, center_y - 0.02, z)  # Index MCP
+        points[9] = Landmark3D(center_x, center_y - 0.03, z)         # Middle MCP
+        points[13] = Landmark3D(center_x - 0.03, center_y - 0.02, z) # Ring MCP
+        points[17] = Landmark3D(center_x - 0.05, center_y + 0.01, z) # Pinky MCP
+        if is_open:
+            points[4] = Landmark3D(center_x + 0.12, center_y - 0.02, z)   # Thumb tip
+            points[8] = Landmark3D(center_x + 0.05, center_y - 0.18, z)   # Index tip
+            points[12] = Landmark3D(center_x, center_y - 0.20, z)         # Middle tip
+            points[16] = Landmark3D(center_x - 0.04, center_y - 0.18, z)  # Ring tip
+            points[20] = Landmark3D(center_x - 0.08, center_y - 0.15, z)  # Pinky tip
+        else:
+            points[4] = Landmark3D(center_x + 0.02, center_y + 0.02, z)
+            points[8] = Landmark3D(center_x + 0.03, center_y + 0.02, z)
+            points[12] = Landmark3D(center_x, center_y + 0.02, z)
+            points[16] = Landmark3D(center_x - 0.02, center_y + 0.02, z)
+            points[20] = Landmark3D(center_x - 0.04, center_y + 0.03, z)
     else:
-        # Curled finger tips (close to palm center / wrist)
-        points[4] = Landmark3D(center_x - 0.02, center_y + 0.02, z)   # Thumb tucked
-        points[8] = Landmark3D(center_x - 0.03, center_y + 0.02, z)   # Index curled
-        points[12] = Landmark3D(center_x, center_y + 0.02, z)         # Middle curled
-        points[16] = Landmark3D(center_x + 0.02, center_y + 0.02, z)  # Ring curled
-        points[20] = Landmark3D(center_x + 0.04, center_y + 0.03, z)  # Pinky curled
+        points[1] = Landmark3D(center_x - 0.04, center_y + 0.06, z)
+        points[2] = Landmark3D(center_x - 0.06, center_y + 0.03, z)
+        points[5] = Landmark3D(center_x - 0.04, center_y - 0.02, z)  # Index MCP
+        points[9] = Landmark3D(center_x, center_y - 0.03, z)         # Middle MCP
+        points[13] = Landmark3D(center_x + 0.03, center_y - 0.02, z) # Ring MCP
+        points[17] = Landmark3D(center_x + 0.05, center_y + 0.01, z) # Pinky MCP
+        if is_open:
+            points[4] = Landmark3D(center_x - 0.12, center_y - 0.02, z)   # Thumb tip
+            points[8] = Landmark3D(center_x - 0.05, center_y - 0.18, z)   # Index tip
+            points[12] = Landmark3D(center_x, center_y - 0.20, z)         # Middle tip
+            points[16] = Landmark3D(center_x + 0.04, center_y - 0.18, z)  # Ring tip
+            points[20] = Landmark3D(center_x + 0.08, center_y - 0.15, z)  # Pinky tip
+        else:
+            points[4] = Landmark3D(center_x - 0.02, center_y + 0.02, z)
+            points[8] = Landmark3D(center_x - 0.03, center_y + 0.02, z)
+            points[12] = Landmark3D(center_x, center_y + 0.02, z)
+            points[16] = Landmark3D(center_x + 0.02, center_y + 0.02, z)
+            points[20] = Landmark3D(center_x + 0.04, center_y + 0.03, z)
 
-    return HandLandmarks(tuple(points), Handedness("Right", 0.98), BoundingBox.from_landmarks(points))
+    return HandLandmarks(tuple(points), Handedness(handedness, 0.98), BoundingBox.from_landmarks(points))
+
 
 
 def test_heart_mesh_generation():
@@ -70,8 +97,9 @@ def test_heart_mesh_generation():
 def test_heart_state_defaults():
     """Verify default values and configuration in HeartState."""
     state = HeartState()
-    assert state.min_scale == 0.15
+    assert state.min_scale == 0.075
     assert state.max_scale == 1.0
+    assert state.base_radius == 0.140
     assert state.color_bgr == (193, 182, 255)  # Baby Pink #FFB6C1
     assert state.is_visible is False
     assert state.scale == 1.0
@@ -125,6 +153,30 @@ def test_heart_engine_step_and_scaling():
     assert state.is_visible is False or state.alpha <= 0.05
 
 
+def test_heart_activation_on_open_palm_only():
+    """Verify digital heart only activates and appears when an open palm is shown."""
+    engine = ARHeartEngine(enabled=True)
+    closed_hand = make_synthetic_hand(is_open=False)
+    open_hand = make_synthetic_hand(is_open=True)
+
+    # 1. Initially showing closed fist -> heart must NOT appear
+    state_closed = engine.step([closed_hand], timestamp=0.0)
+    assert state_closed.is_visible is False
+    assert state_closed.is_activated is False
+
+    # 2. Opening palm -> heart activates and becomes visible
+    for i in range(5):
+        state_open = engine.step([open_hand], timestamp=0.1 + i * 0.033)
+    assert state_open.is_visible is True
+    assert state_open.is_activated is True
+
+    # 3. Closing palm after activation -> stays tracked and shrinks
+    for i in range(15):
+        state_shrunk = engine.step([closed_hand], timestamp=0.3 + i * 0.033)
+    assert state_shrunk.is_visible is True
+    assert state_shrunk.scale < 0.40
+
+
 def test_heart_engine_toggle_and_reset():
     """Verify toggle and reset behavior."""
     engine = ARHeartEngine(enabled=True)
@@ -140,7 +192,9 @@ def test_heart_engine_toggle_and_reset():
     engine.state.is_visible = True
     engine.reset()
     assert engine.state.is_visible is False
+    assert engine.state.is_activated is False
     assert engine.state.scale == engine.state.max_scale
+
 
 
 def test_heart_engine_heartbeat_pulse():
@@ -223,3 +277,41 @@ def test_demo_parser_heart_flags():
 
     args_default = parser.parse_args([])
     assert args_default.heart is False
+
+
+def test_palm_facing_camera_check():
+    """Verify PalmOpennessEstimator correctly identifies palm vs back of hand."""
+    r_palm = make_synthetic_hand(facing_palm=True, handedness="Right")
+    r_back = make_synthetic_hand(facing_palm=False, handedness="Right")
+    l_palm = make_synthetic_hand(facing_palm=True, handedness="Left")
+    l_back = make_synthetic_hand(facing_palm=False, handedness="Left")
+
+    assert PalmOpennessEstimator.is_palm_facing_camera(r_palm) is True
+    assert PalmOpennessEstimator.is_palm_facing_camera(r_back) is False
+    assert PalmOpennessEstimator.is_palm_facing_camera(l_palm) is True
+    assert PalmOpennessEstimator.is_palm_facing_camera(l_back) is False
+
+
+def test_heart_suppression_on_back_of_hand():
+    """Verify digital heart is suppressed and does not appear when the back of hand is shown."""
+    engine = ARHeartEngine(enabled=True)
+    back_hand = make_synthetic_hand(is_open=True, facing_palm=False, handedness="Right")
+    palm_hand = make_synthetic_hand(is_open=True, facing_palm=True, handedness="Right")
+
+    # 1. Back of hand -> should not activate/appear
+    for i in range(10):
+        state = engine.step([back_hand], timestamp=i * 0.033)
+    assert state.is_visible is False
+    assert state.is_activated is False
+
+    # 2. Turn to palm -> activates and appears
+    for i in range(10):
+        state = engine.step([palm_hand], timestamp=0.5 + i * 0.033)
+    assert state.is_visible is True
+    assert state.is_activated is True
+
+    # 3. Turn back to dorsal side -> immediately suppresses/fades out
+    for i in range(10):
+        state = engine.step([back_hand], timestamp=1.0 + i * 0.033)
+    assert state.is_visible is False
+

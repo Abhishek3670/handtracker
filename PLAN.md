@@ -303,5 +303,23 @@ flowchart TD
 - **WO-018** (Milestone 17): Photorealistic 3D Ball Engine, 3-Point Studio Lighting, Bump-Mapped Leather & Physics Spin.
   - **Worker**: `codex` | **QA**: `gemma` | **Status**: `COMPLETED` (Commit `1874148`)
 - **WO-019** (Milestone 18): Production Readiness & Comprehensive Documentation (`README.md`, `pyproject.toml`, `CHANGELOG.md`, `requirements.txt`, `LICENSE`).
-  - **Worker**: `codex` | **QA**: `gemma` | **Status**: `COMPLETED`
+  - **Worker**: `codex` | **QA**: `gemma` | **Status**: `COMPLETED` (Commit `32bbc62`)
+- **WO-020** (Milestone 19): Digital AR Baby-Pink Heart on Palm with Dynamic Palm Openness Scaling & Smooth Animation.
+  - **Worker**: `codex` | **QA**: `gemma` | **Status**: `COMPLETED` (Commit `1b3b440`)
+
+### Milestone 19: Digital AR Baby-Pink Heart on Palm with Dynamic Open/Close Scaling [COMPLETED]
+- [x] **Palm Openness Metric & Tracking (`handtracking.ar.heart`)**:
+  - Compute continuous palm openness ratio $\sigma \in [0.0, 1.0]$ based on normalized fingertip-to-palm distances across all 5 fingers.
+  - Track 3D palm center and normal orientation to anchor the floating heart above the hand.
+- [x] **Smooth Organic Animation & Scaling**:
+  - Continuous scaling: $S_{target} = S_{min} + \sigma \times (S_{max} - S_{min})$ with exponential smoothing $\alpha = 1 - e^{-14\Delta t}$ to eliminate jitter.
+  - ECG-inspired `lub_dub` heartbeat pulse ($\sin(\omega t) + 0.35\sin(2\omega t - 0.5)$) that dynamically scales with openness.
+  - Shrinks smoothly to miniature seed ($S_{min} \approx 0.15$) when fist is closed, expands gracefully back to full size ($S_{max} = 1.0$) when palm opens.
+- [x] **Baby Pink Aesthetic & Shading**:
+  - Baby pink palette (`RGB(255, 182, 193)` / `#FFB6C1`) with 3-layer concentric glowing aura, glossy specular sheen, inner pastel core, and 5 orbiting sparkles.
+  - Anti-aliased parametric heart geometry rendering (`x = 16sin³t`, `y = -13cost + 5cos2t + 2cos3t + cos4t`).
+- [x] **Pipeline & CLI Controls (`demo.py`, `pipeline.py`, `hud.py`)**:
+  - Added `--heart` / `-ht` CLI flag and `<k>` hotkey live toggle with HUD indicator.
+- [x] **Unit Tests (`tests/test_heart.py`)**:
+  - 9 automated unit tests verifying mathematical bounds, scale smoothing, heartbeat phase, and rendering (101/101 tests passing).
 

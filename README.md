@@ -4,10 +4,10 @@
 [![ModernGL](https://img.shields.io/badge/ModernGL-5.12%2B-orange.svg)](https://github.com/moderngl/moderngl)
 [![MediaPipe](https://img.shields.io/badge/MediaPipe-0.10%2B-teal.svg)](https://developers.google.com/mediapipe)
 [![OpenCV](https://img.shields.io/badge/OpenCV-4.8%2B-green.svg)](https://opencv.org/)
-[![Tests](https://img.shields.io/badge/tests-92%2F92%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-101%2F101%20passed-brightgreen.svg)]()
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**HandTracking** is a high-performance, real-time hand tracking, gesture recognition, and interactive 3D physics engine designed for standard webcam feeds. Built with a zero-lag asynchronous capture architecture, dynamic 1-Euro adaptive jitter filtering, and a hardware-accelerated **ModernGL GPU shader pipeline**, HandTracking delivers photorealistic 3D rendering, intuitive spatial air gestures, an interactive Air Canvas, and a touchless OS media controller with near-zero latency.
+**HandTracking** is a high-performance, real-time hand tracking, gesture recognition, and interactive 3D physics engine designed for standard webcam feeds. Built with a zero-lag asynchronous capture architecture, dynamic 1-Euro adaptive jitter filtering, and a hardware-accelerated **ModernGL GPU shader pipeline**, HandTracking delivers photorealistic 3D rendering, intuitive spatial air gestures, an interactive Air Canvas, a responsive Digital AR Heart on palm, and a touchless OS media controller with near-zero latency.
 
 ---
 
@@ -15,6 +15,7 @@
 
 - **⚡ Zero-Lag Asynchronous Capture**: Dedicated multi-threaded background frame grabber drains OpenCV driver queues and eliminates stale frame buildup.
 - **🖐️ 21 3D Landmark Estimation**: Full 3D joint landmark detection per hand via MediaPipe with real-time monocular hand depth ($Z$) estimation and palm span tracking.
+- **💖 Digital AR Baby-Pink Heart on Palm**: Interactive floating baby-pink heart with real-time continuous scaling based on palm openness (curling into a fist shrinks to seed, opening palm blooms to full size) with ECG heartbeat pulse and glowing sparkles.
 - **🎯 1-Euro Adaptive Jitter Filter**: Dynamic cutoff low-pass filtering eliminates high-frequency tremor on resting hands while preserving instantaneous response during fast motion.
 - **✌️ 10 Static + 7 Temporal Gestures**: Instant rule-based geometric classification (`open_palm`, `fist`, `peace_sign`, `pointing`, `thumbs_up`, `pinch`, etc.) and spatio-temporal trajectory tracking (`swipes`, `circles`, `waves`).
 - **🎨 Interactive Air Canvas**: Draw in real-time in 3D air using index-thumb pinch gestures, switch among 4 vibrant color palettes, and clear drawings on demand.
@@ -22,7 +23,8 @@
 - **🏀 3D AR Physics Simulation Engine**: Real-time spring-damper hand collision, palm plane bounce deflection, pinch grab-and-throw across 3D depth, gravity toggling, and angular velocity spin integration.
 - **🌌 3D Cyber-Space Environment**: Immersive digital 3D perspective cyber-room with holographic hand skeleton rendering, depth-aware shadows, and room boundary reflections.
 - **✨ ModernGL GPU Shader Engine**: Hardware-accelerated OpenGL/GLSL rendering with **3-Point Studio Lighting** (Key, Fill, Rim, Hemispheric ambient), micro-pebble normal bump mapping, recessed rubber seams, and 4 PBR skins (**Basketball**, **Chrome**, **Tennis**, **Neon**).
-- **📊 Real-Time HUD & Telemetry**: Millisecond latency breakdown across all pipeline stages (Capture, Inference, Smoothing, Gestures, Physics, GPU Render) with an interactive on-screen cheat sheet card.
+- **📊 Real-Time HUD & Telemetry**: Millisecond latency breakdown across all pipeline stages (Capture, Inference, Smoothing, Gestures, Physics, Heart, GPU Render) with an interactive on-screen cheat sheet card.
+
 
 ---
 
@@ -146,6 +148,7 @@ python -m handtracking --benchmark 500 --headless
 | `--width` | `int` | `1280` | Capture frame width in pixels |
 | `--height` | `int` | `720` | Capture frame height in pixels |
 | `--model-complexity` | `0` \| `1` | `1` | MediaPipe model complexity (`0` = ultra-fast, `1` = full accuracy) |
+| `--heart`, `-ht` | Flag | `False` | Enable interactive Digital AR Baby-Pink Heart on palm with openness scaling |
 | `--gpu-render`, `--gpu` | Flag | `False` | Enable ModernGL hardware GPU shader rendering for 3D room & ball |
 | `--ar-ball`, `--ar` | Flag | `False` | Enable interactive 3D AR physics ball |
 | `--virtual-room`, `-vr` | Flag | `False` | Render 3D digital cyber-space room instead of raw webcam feed |
@@ -168,6 +171,7 @@ When running the live GUI window, you can control all features in real-time:
 |:---:|---|---|
 | <kbd>q</kbd> / <kbd>ESC</kbd> | Exit application | System |
 | <kbd>h</kbd> | Toggle on-screen **Help & Controls Cheat Sheet** | HUD |
+| <kbd>k</kbd> | Toggle **Digital AR Baby-Pink Heart on Palm** | AR Heart |
 | <kbd>u</kbd> | Toggle **ModernGL GPU Hardware Shaders** (on/off) | GPU Renderer |
 | <kbd>v</kbd> | Toggle **3D Cyber-Space Environment** (Webcam $\leftrightarrow$ Cyber-Room) | 3D Room |
 | <kbd>b</kbd> | **Reset AR Ball** position to center screen | AR Physics |
@@ -177,6 +181,7 @@ When running the live GUI window, you can control all features in real-time:
 | <kbd>m</kbd> | Toggle **Media Controller HUD overlay** | Media Controller |
 | <kbd>c</kbd> | **Clear Air Canvas** drawing layer | Air Canvas |
 | <kbd>1</kbd> - <kbd>4</kbd> | Switch Air Canvas Color (<kbd>1</kbd> Green, <kbd>2</kbd> Blue, <kbd>3</kbd> Red, <kbd>4</kbd> Yellow) | Air Canvas |
+
 
 ---
 
@@ -281,10 +286,11 @@ pytest --durations=10
 | `test_ar_renderer.py` | 4 | OpenCV fallback rendering & skin cycling |
 | `test_virtual_room.py` | 5 | 3D perspective cyber-room projection, shadows, hand joints |
 | `test_gpu_renderer.py` | 13 | ModernGL FBO, GLSL shaders, 3-point lighting, bump mapping |
+| `test_heart.py` | 9 | Digital AR baby-pink heart, palm openness scaling, pulse |
 | `test_pipeline.py` | 4 | End-to-end multi-stage pipeline integration & context managers |
 | `test_visualization.py` | 7 | HUD telemetry profiler, stage latency meters, help overlay |
 | `test_config.py` | 6 | Configuration schema validation, defaults, serialization |
-| **Total** | **92** | **100% Passed** |
+| **Total** | **101** | **100% Passed** |
 
 ---
 
@@ -300,9 +306,11 @@ HandTracking/
 │   ├── ar/
 │   │   ├── colliders.py          # 3D palm plane & fingertip collision primitives
 │   │   ├── gpu_renderer.py       # ModernGL GPU shader engine & GLSL lighting
+│   │   ├── heart.py              # Digital AR baby-pink heart on palm & openness scaling
 │   │   ├── physics.py            # 3D AR physics engine (bouncing, grab, throw, spin)
 │   │   ├── renderer.py           # OpenCV 2.5D fallback renderer
 │   │   └── room.py               # 3D digital cyber-space perspective environment
+
 │   ├── capture/
 │   │   └── async_cam.py          # Lock-free multi-threaded webcam capture
 │   ├── config/

@@ -18,5 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **3D AR Physics Simulation (`handtracking.ar.physics`)**: Real-time physics engine with spring-damper hand collision, palm plane bounce, pinch grab-and-throw, depth throwing ($V_z$), gravity toggle, and angular ball spin.
 - **3D Cyber-Space Environment (`handtracking.ar.room`)**: 3D perspective grid cyber-room with holographic hand skeleton rendering, depth-aware shadows, and room boundary reflections.
 - **Hardware GPU Shader Engine (`handtracking.ar.gpu_renderer`)**: ModernGL offscreen FBO rendering with GLSL Blinn-Phong shaders, 3-point cinematic studio lighting, micro-pebble bump mapping, recessed rubber seams, and PBR materials (Basketball, Chrome, Tennis, Neon).
+- **Digital AR Baby-Pink Heart (`handtracking.ar.heart`)**: Interactive floating baby-pink heart hovering directly over the palmar pad with continuous real-time scaling based on palm openness (curling fingers shrinks heart to a seed, opening palm blooms to full 2x size), dorsal side (back-of-hand) suppression, open-palm-only initial activation, ECG `lub_dub` heartbeat pulse, 3-layer concentric glowing aura, and orbiting sparkles.
 - **HUD & Telemetry Profiler (`handtracking.visualization`)**: Real-time FPS, per-stage latency breakdown (Capture, Inference, Smoothing, Gestures, Physics, Rendering), and interactive on-screen help card.
-- **Comprehensive Test Suite (`tests/`)**: 92 unit tests covering all components with 100% pass rate in headless environments.
+- **Comprehensive Test Suite (`tests/`)**: 104 unit tests covering all components with 100% pass rate in headless environments.
+
