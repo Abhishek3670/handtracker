@@ -57,10 +57,60 @@ def test_uv_sphere_mesh_generation():
 
 
 def test_perspective_matrix_construction():
-    mat = make_ortho_or_perspective_matrix(focal_depth=0.85)
+    focal_depth = 0.85
+    mat = make_ortho_or_perspective_matrix(focal_depth=focal_depth)
     assert mat.shape == (4, 4)
     assert mat.dtype == np.float32
-    assert mat[3, 2] == 1.0
+    d = 1.0 / focal_depth
+    assert np.isclose(mat[0, 0], d)
+    assert np.isclose(mat[1, 1], d)
+    assert np.isclose(mat[2, 2], 1.0)
+    assert np.isclose(mat[3, 2], 1.0)
+    assert np.isclose(mat[3, 3], d)
+
+    # Verify perspective division matches CPU formula: x / (1 + z * focal_depth)
+    for xw, yw, zw in [(0.2, -0.3, 0.4), (-0.5, 0.1, -0.2), (0.0, 0.0, 0.5)]:
+        p_world = np.array([xw, yw, zw, 1.0], dtype=np.float32)
+        p_clip = np.dot(mat, p_world)
+        ndc_x = p_clip[0] / p_clip[3]
+        ndc_y = p_clip[1] / p_clip[3]
+
+        expected_scale = 1.0 / (1.0 + zw * focal_depth)
+        assert np.isclose(ndc_x, xw * expected_scale, atol=1e-5)
+        assert np.isclose(ndc_y, yw * expected_scale, atol=1e-5)
+
+
+def test_isotropic_sphere_model_transform():
+    focal_depth = 0.85
+    mvp_mat = make_ortho_or_perspective_matrix(focal_depth=focal_depth)
+
+    # Ball at (x=0.5, y=0.5, z=0.0) -> world coords (0.0, 0.0, 0.0)
+    radius = 0.05
+    rx = ry = rz = radius * 2.0
+    model_mat = np.array([
+        [rx,  0.0, 0.0, 0.0],
+        [0.0, ry,  0.0, 0.0],
+        [0.0, 0.0, rz,  0.0],
+        [0.0, 0.0, 0.0, 1.0],
+    ], dtype=np.float32)
+
+    final_mvp = np.dot(mvp_mat, model_mat)
+
+    # Vertex on X pole: (1, 0, 0)
+    vx = np.dot(final_mvp, np.array([1.0, 0.0, 0.0, 1.0], dtype=np.float32))
+    ndc_vx = vx[0] / vx[3]
+
+    # Vertex on Y pole: (0, 1, 0)
+    vy = np.dot(final_mvp, np.array([0.0, 1.0, 0.0, 1.0], dtype=np.float32))
+    ndc_vy = vy[1] / vy[3]
+
+    # Vertex on Z pole: (0, 0, 1)
+    vz = np.dot(final_mvp, np.array([0.0, 0.0, 1.0, 1.0], dtype=np.float32))
+
+    # Both X and Y extents in NDC space are identical (isotropic aspect ratio 1.0)
+    assert np.isclose(abs(ndc_vx), abs(ndc_vy), atol=1e-5)
+    assert np.isclose(abs(ndc_vx), rx / 1.0, atol=1e-5)
+
 
 
 def test_gpu_room_renderer_init_and_properties():

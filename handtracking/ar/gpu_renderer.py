@@ -82,21 +82,16 @@ def make_ortho_or_perspective_matrix(focal_depth: float = 0.85) -> np.ndarray:
     """
     f = float(focal_depth)
     d = 1.0 / max(0.1, f)
-    z_near = -0.65
-    z_far = 0.70
 
-    # Perspective matrix with view translation d
-    # X_clip = xw * d
-    # Y_clip = yw * d
-    # Z_clip = ((z_far + d)/(z_far - z_near)) * (zw + d) - (2*(z_far+d)*(z_near+d)/(z_far - z_near))
+    # In row-major form before column-major transpose:
+    # X_clip = d * xw
+    # Y_clip = d * yw
+    # Z_clip = zw
     # W_clip = zw + d
-    a = (z_far + d) / (z_far - z_near)
-    b = -2.0 * (z_far + d) * (z_near + d) / (z_far - z_near)
-
     mat = np.array([
         [d,   0.0, 0.0, 0.0],
         [0.0, d,   0.0, 0.0],
-        [0.0, 0.0, a,   b],
+        [0.0, 0.0, 1.0, 0.0],
         [0.0, 0.0, 1.0, d],
     ], dtype=np.float32)
     return mat
@@ -121,7 +116,7 @@ void main() {
     v_world_pos = wp.xyz;
     v_world_normal = normalize(u_normal_mat * in_normal);
     v_uv = in_uv;
-    gl_Position = u_mvp * wp;
+    gl_Position = u_mvp * vec4(in_pos, 1.0);
 }
 """
 
@@ -386,7 +381,7 @@ class GPURoomRenderer:
         """Convert normalized (0..1, 0..1, -0.6..0.6) to centered world coords (-1..1, -1..1, -0.6..0.6)."""
         return ((x - 0.5) * 2.0, -(y - 0.5) * 2.0, z)
 
-    def _draw_lines(self, lines: list[tuple[Sequence[float], Sequence[float], Sequence[float]]], mvp_bytes: bytes, tint=(1.0, 1.0, 1.0, 1.0)) -> None:
+    def _draw_lines(self, lines: list[tuple[Sequence[float], Sequence[float], Sequence[float]]], mvp_mat: np.ndarray, tint=(1.0, 1.0, 1.0, 1.0)) -> None:
         """Render batch of 3D colored line segments."""
         if not lines:
             return
@@ -406,7 +401,7 @@ class GPURoomRenderer:
             [(vbo, "3f 4f", "in_pos", "in_color")],
         )
 
-        self.line_prog["u_mvp"].write(mvp_bytes)
+        self.line_prog["u_mvp"].write(mvp_mat.T.copy().tobytes())
         self.line_prog["u_tint"].value = tint
         vao.render(moderngl.LINES)
         vbo.release()
@@ -426,11 +421,12 @@ class GPURoomRenderer:
     ) -> None:
         """Render 3D sphere at world position with model transform and GLSL lighting."""
         wx, wy, wz = self._to_world_coords(x, y, z)
+        # Isotropic scaling across all 3 dimensions
         rx = radius * 2.0
         ry = radius * 2.0
-        rz = radius
+        rz = radius * 2.0
 
-        # Model matrix: Translate * Scale
+        # Model matrix: Translate * Scale (row-major)
         model_mat = np.array([
             [rx,  0.0, 0.0, wx],
             [0.0, ry,  0.0, wy],
@@ -447,9 +443,10 @@ class GPURoomRenderer:
 
         final_mvp = np.dot(mvp_mat, model_mat)
 
-        self.sphere_prog["u_mvp"].write(final_mvp.tobytes())
-        self.sphere_prog["u_model"].write(model_mat.tobytes())
-        self.sphere_prog["u_normal_mat"].write(normal_mat.tobytes())
+        # Transpose row-major NumPy matrices to OpenGL column-major byte buffer
+        self.sphere_prog["u_mvp"].write(final_mvp.T.copy().tobytes())
+        self.sphere_prog["u_model"].write(model_mat.T.copy().tobytes())
+        self.sphere_prog["u_normal_mat"].write(normal_mat.T.copy().tobytes())
         self.sphere_prog["u_light_pos"].value = (0.3, 0.8, -0.7)
         self.sphere_prog["u_view_pos"].value = (0.0, 0.0, -1.0 / self.focal_depth)
         self.sphere_prog["u_skin"].value = int(skin)
@@ -506,7 +503,6 @@ class GPURoomRenderer:
 
         # 3. Compute Perspective MVP Matrix
         mvp_mat = make_ortho_or_perspective_matrix(self.focal_depth)
-        mvp_bytes = mvp_mat.tobytes()
 
         # 4. Generate 3D Room Grid & Wireframe Lines
         b_min_x, b_min_y, b_min_z = self.bounds_min
@@ -566,7 +562,7 @@ class GPURoomRenderer:
         if by < floor_y - 0.02:
             grid_lines.append(((bx, by, bz), (bx, floor_y, bz), (120.0 / 255.0, 100.0 / 255.0, 160.0 / 255.0, 0.8)))
 
-        self._draw_lines(grid_lines, mvp_bytes)
+        self._draw_lines(grid_lines, mvp_mat)
 
         # 5. Render 3D Holographic Hand Skeletons
         hand_lines = []
@@ -595,7 +591,7 @@ class GPURoomRenderer:
                 )
 
         if hand_lines:
-            self._draw_lines(hand_lines, mvp_bytes)
+            self._draw_lines(hand_lines, mvp_mat)
 
         # 6. Render 3D Shaded AR Physics Ball
         skin_id = 0
