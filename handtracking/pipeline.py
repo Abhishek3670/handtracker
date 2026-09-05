@@ -2,7 +2,7 @@
 from __future__ import annotations
 import time
 import numpy as np
-from .ar import ARPhysicsEngine, BallRenderer, Virtual3DRoomRenderer
+from .ar import ARPhysicsEngine, BallRenderer, BallSkin, GPURoomRenderer, Virtual3DRoomRenderer
 from .capture import AsyncWebcamCapture
 from .filtering import HandSmoother
 from .gestures import AirCanvas, GestureEventDispatcher, GestureRecognizer, TemporalGestureRecognizer
@@ -28,6 +28,8 @@ class HandTrackingPipeline:
         ar_renderer=None,
         room_renderer=None,
         virtual_room: bool = False,
+        use_gpu_render: bool = False,
+        gpu_renderer: GPURoomRenderer | None = None,
     ):
         self.capture = capture
         self.detector = detector
@@ -45,11 +47,18 @@ class HandTrackingPipeline:
         self.ar_renderer = ar_renderer or (BallRenderer() if ar_physics is not None else None)
         self.room_renderer = room_renderer or (Virtual3DRoomRenderer() if ar_physics is not None else None)
         self.virtual_room = virtual_room
+        self.use_gpu_render = use_gpu_render
+        self.gpu_renderer = gpu_renderer or (GPURoomRenderer(prefer_gpu=True) if ar_physics is not None else None)
 
     def toggle_virtual_room(self) -> bool:
         """Toggle 3D digital cyber room rendering mode."""
         self.virtual_room = not self.virtual_room
         return self.virtual_room
+
+    def toggle_gpu_render(self) -> bool:
+        """Toggle hardware-accelerated GPU shader rendering mode."""
+        self.use_gpu_render = not self.use_gpu_render
+        return self.use_gpu_render
 
     def process_frame(self, frame):
         started = time.perf_counter()
@@ -88,15 +97,28 @@ class HandTrackingPipeline:
         gesture_ms = (time.perf_counter() - gesture_start) * 1000
 
         render_start = time.perf_counter()
-        if self.virtual_room and self.room_renderer is not None and self.ar_physics is not None:
+        gpu_rendered = False
+        if self.virtual_room and self.ar_physics is not None:
             canvas_frame = np.empty_like(frame)
-            self.room_renderer.render_room(
-                canvas_frame,
-                self.ar_physics,
-                smoothed,
-                raw_webcam=frame,
-                timestamp=timestamp,
-            )
+            if self.use_gpu_render and self.gpu_renderer is not None and self.gpu_renderer.is_gpu_available:
+                skin = getattr(self.ar_renderer, "skin", BallSkin.BASKETBALL) if self.ar_renderer is not None else BallSkin.BASKETBALL
+                self.gpu_renderer.render_room(
+                    canvas_frame,
+                    self.ar_physics,
+                    smoothed,
+                    raw_webcam=frame,
+                    timestamp=timestamp,
+                    skin=skin,
+                )
+                gpu_rendered = True
+            elif self.room_renderer is not None:
+                self.room_renderer.render_room(
+                    canvas_frame,
+                    self.ar_physics,
+                    smoothed,
+                    raw_webcam=frame,
+                    timestamp=timestamp,
+                )
         else:
             canvas_frame = frame
 
@@ -113,7 +135,7 @@ class HandTrackingPipeline:
         )
         if self.canvas:
             self.canvas.render(output)
-        if self.ar_physics is not None and self.ar_renderer is not None:
+        if not gpu_rendered and self.ar_physics is not None and self.ar_renderer is not None:
             proj_fn = self.room_renderer.project_3d if self.room_renderer is not None else None
             focal_depth = getattr(self.room_renderer, "focal_depth", 0.85) if self.room_renderer is not None else 0.85
             self.ar_renderer.draw(
@@ -146,8 +168,13 @@ class HandTrackingPipeline:
         self.close()
 
     def close(self):
-        for owner in (self.capture, self.detector):
-            if owner is not None and hasattr(owner, "stop"):
-                owner.stop()
+        for owner in (self.capture, self.detector, self.gpu_renderer):
+            if owner is not None:
+                if hasattr(owner, "stop"):
+                    owner.stop()
+                elif hasattr(owner, "release"):
+                    owner.release()
+                elif hasattr(owner, "close"):
+                    owner.close()
             elif owner is not None and hasattr(owner, "close"):
                 owner.close()

@@ -208,6 +208,17 @@ flowchart TD
 - [x] **3D Holographic Hand Depth in Cyber-Space (`handtracking.ar.room`)**:
   - Render 3D holographic hand joints, cyber-bones, and palm avatar at true room depth $Z_i = Z_{hand} + z_i$.
 
+### Milestone 14: Hardware-Accelerated ModernGL GPU Shader Engine for 3D Cyber Room & Mesh Shading [COMPLETED]
+- [x] **ModernGL Standalone GPU Pipeline (`handtracking.ar.gpu_renderer`)**:
+  - Offscreen Framebuffer Object (FBO) pipeline with depth buffer (`DEPTH_TEST`) and alpha blending.
+  - GLSL Vertex & Fragment Shaders for 3D UV sphere mesh with Blinn-Phong/PBR lighting, dynamic skin parameters, and specular reflections.
+  - GLSL Shaders for 3D perspective cyber-room grid lines, depth gradient, and boundary glow pulses.
+  - GLSL Shaders for 3D holographic hand skeletons (depth-instanced joint spheres and glowing cyber-bones).
+  - Graceful fallback to CPU `Virtual3DRoomRenderer` / `BallRenderer` if GPU context fails or `moderngl` is unavailable.
+- [x] **Pipeline & CLI Integration**:
+  - Expose `use_gpu_render: bool` in `HandTrackingPipeline`.
+  - Add CLI flag `--gpu-render` / `--gpu` in `demo.py` with GPU adapter telemetry.
+
 ### Phase 3 / Future Extensions: Deep Learning Sequence Models [ON HOLD / DEFERRED]
 - [ ] Continuous American Sign Language (ASL) sentence recognition via Temporal Transformer / BiLSTM sequence models over 3D landmark streams.
 - [ ] Dense 3D Hand Mesh Estimation (e.g. MANO 778-vertex surface mesh via ONNX Runtime / DirectML GPU).
@@ -243,4 +254,6 @@ flowchart TD
 - **WO-013** (Milestone 12): 3D Virtual Space Perspective Camera Alignment & Unified Spatial Shadows.
   - **Worker**: `codex` | **QA**: `gemma` | **Status**: `COMPLETED` (Commit `b2fff7c`)
 - **WO-014** (Milestone 13): Dynamic Monocular Hand Depth ($Z$) Estimation & Free 3D Spatial Movement.
+  - **Worker**: `codex` | **QA**: `gemma` | **Status**: `COMPLETED` (Commit `121b619`)
+- **WO-015** (Milestone 14): Hardware-Accelerated ModernGL GPU Shader Engine for 3D Cyber Room & Mesh Shading.
   - **Worker**: `codex` | **QA**: `gemma` | **Status**: `COMPLETED`

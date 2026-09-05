@@ -16,6 +16,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest"]
+gpu = ["moderngl>=5.8.0"]
 
 [tool.setuptools.packages.find]
 include = ["handtracking*"]

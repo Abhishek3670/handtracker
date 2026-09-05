@@ -151,7 +151,7 @@ class HUDOverlay:
     ):
         """Render context-aware interactive instruction bar at the bottom of the screen."""
         if ar_active or mode == "ar":
-            text = "AR Ball: Palm=Bounce | Pinch=Grab/Throw | v=3D Space | b=Reset | s=Skin | g=Grav  [h: Help | q: Exit]"
+            text = "AR Ball: Palm=Bounce | Pinch=Grab/Throw | v=3D Space | u=GPU | b=Reset | s=Skin | g=Grav  [h: Help | q: Exit]"
         elif media_active or mode == "media":
             text = "Media: Hold 1s=Wake | Circle=Vol +/- | Peace=Play/Pause | Swipe=Track | w=Wake  [h: Help | q: Exit]"
         elif canvas_active or mode == "canvas":
@@ -221,7 +221,7 @@ class HUDOverlay:
                 ("[ KEYBOARD SHORTCUTS ]", (255, 120, 220)),
                 ("  - 'h' : Toggle this Help Cheat Sheet", (220, 220, 220)),
                 ("  - 'q' / ESC : Exit Application", (220, 220, 220)),
-                ("  - 'v' : Toggle 3D Cyber-Space Environment (AR)", (220, 220, 220)),
+                ("  - 'v' : Toggle 3D Space (AR)  |  'u' : Toggle GPU Shaders", (220, 220, 220)),
                 ("  - 'b' : Reset AR Ball  |  's' : Cycle Skins  |  'g' : Gravity", (220, 220, 220)),
                 ("  - 'w' : Force Media Wake / Sleep  |  'm' : Toggle Media HUD", (220, 220, 220)),
                 ("  - 'c' : Clear Canvas   |  '1'-'4' : Canvas Colors", (220, 220, 220)),

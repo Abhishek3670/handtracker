@@ -3,6 +3,7 @@ from .colliders import PalmCollider, PointCollider, FingertipCollider, HandVeloc
 from .physics import ARPhysicsEngine, BallState, BallInteractionState, ImpactRipple
 from .renderer import BallRenderer, BallSkin, SKIN_CYCLE
 from .room import Virtual3DRoomRenderer
+from .gpu_renderer import GPURoomRenderer
 
 __all__ = [
     "PalmCollider",
@@ -17,4 +18,5 @@ __all__ = [
     "BallSkin",
     "SKIN_CYCLE",
     "Virtual3DRoomRenderer",
+    "GPURoomRenderer",
 ]
