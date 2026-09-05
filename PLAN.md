@@ -227,6 +227,16 @@ flowchart TD
   - Fix perspective projection matrix `make_ortho_or_perspective_matrix` to correctly place vanishing point divisor in row 3, column 2/3.
   - Ensure sphere scale is isotropic (`rx = ry = rz = 2.0 * radius`) in world coordinates.
 
+### Milestone 16: Fix GPU Aspect Ratio Squashing, Enhance Procedural Ball Shaders & Add 3D Floor Indicators [COMPLETED]
+- [x] **Aspect Ratio Compensation (`handtracking.ar.gpu_renderer`)**:
+  - In `_draw_sphere`, scale $r_y = \text{radius} \times 2.0 \times aspect$ (where $aspect = \text{width} / \text{height}$) for both the ball and holographic hand joints, ensuring a 1:1 circular geometry on any display aspect ratio (16:9, 4:3, etc.).
+- [x] **Photorealistic 3D Procedural Shaders (`SPHERE_VERTEX_SHADER` & `SPHERE_FRAGMENT_SHADER`)**:
+  - Pass 3D object-space coordinates (`v_local_pos = in_pos`) for seamless 3D spherical procedural texturing.
+  - Implement smooth anti-aliased 3D basketball seams (`smoothstep`), 3D pebbled leather grain, and groove normal indentation.
+  - Upgrade Chrome, Tennis, and Neon skins with Fresnel rim lighting, iridescence, and velvety glow.
+- [x] **3D Floor Grounding & Contact Shadows**:
+  - Add 3D floor target ring indicator in room grid lines and soft floor contact shadow ellipse.
+
 ### Phase 3 / Future Extensions: Deep Learning Sequence Models [ON HOLD / DEFERRED]
 - [ ] Continuous American Sign Language (ASL) sentence recognition via Temporal Transformer / BiLSTM sequence models over 3D landmark streams.
 - [ ] Dense 3D Hand Mesh Estimation (e.g. MANO 778-vertex surface mesh via ONNX Runtime / DirectML GPU).
@@ -266,4 +276,6 @@ flowchart TD
 - **WO-015** (Milestone 14): Hardware-Accelerated ModernGL GPU Shader Engine for 3D Cyber Room & Mesh Shading.
   - **Worker**: `codex` | **QA**: `gemma` | **Status**: `COMPLETED` (Commit `a56ff14`)
 - **WO-016** (Milestone 15): Fix GPU Shader MVP Matrix Layout, Transform Multiplication & Isotropic Sphere Geometry.
+  - **Worker**: `codex` | **QA**: `gemma` | **Status**: `COMPLETED` (Commit `5f1921a`)
+- **WO-017** (Milestone 16): Fix GPU Aspect Ratio Sphere Distortion, Enhance Procedural Ball Shaders & Add 3D Floor Shadow Indicators.
   - **Worker**: `codex` | **QA**: `gemma` | **Status**: `COMPLETED`

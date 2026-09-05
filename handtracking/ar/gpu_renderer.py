@@ -109,12 +109,14 @@ uniform mat3 u_normal_mat;
 
 out vec3 v_world_pos;
 out vec3 v_world_normal;
+out vec3 v_local_pos;
 out vec2 v_uv;
 
 void main() {
     vec4 wp = u_model * vec4(in_pos, 1.0);
     v_world_pos = wp.xyz;
     v_world_normal = normalize(u_normal_mat * in_normal);
+    v_local_pos = in_pos;
     v_uv = in_uv;
     gl_Position = u_mvp * vec4(in_pos, 1.0);
 }
@@ -124,6 +126,7 @@ SPHERE_FRAGMENT_SHADER = """
 #version 330 core
 in vec3 v_world_pos;
 in vec3 v_world_normal;
+in vec3 v_local_pos;
 in vec2 v_uv;
 
 uniform vec3 u_light_pos;
@@ -152,48 +155,84 @@ void main() {
         return;
     }
 
-    vec3 albedo = vec3(0.9, 0.4, 0.1);
-    float shininess = 32.0;
-    float spec_strength = 0.5;
-    float ambient = 0.25;
+    vec3 albedo = vec3(0.90, 0.40, 0.12);
+    float shininess = 24.0;
+    float spec_strength = 0.40;
+    float ambient = 0.28;
+
+    vec3 p = normalize(v_local_pos);
 
     if (u_skin == 0) { // BASKETBALL
-        float u_seam = abs(sin(v_uv.x * 3.14159 * 2.0));
-        float v_seam = abs(cos(v_uv.y * 3.14159 * 4.0));
-        bool is_rib = (u_seam < 0.05 || abs(v_uv.y - 0.5) < 0.03 || (v_seam < 0.07 && abs(v_uv.y - 0.5) < 0.35));
-        if (is_rib) {
-            albedo = vec3(0.08, 0.05, 0.05);
-            spec_strength = 0.1;
-        } else {
-            albedo = vec3(0.88, 0.38, 0.12);
-            spec_strength = 0.35;
-        }
-        shininess = 20.0;
+        // 1. Precise 3D basketball seam curves in unit sphere coordinates
+        // Main equator
+        float d1 = abs(p.y);
+        // Main prime meridian
+        float d2 = abs(p.x);
+        // Orthogonal meridian
+        float d3 = abs(p.z);
+        // Curved side ribs (classic basketball two-lobed hyperbola arcs)
+        float d4 = abs(abs(p.x) - 0.707 * sqrt(max(0.001, 1.0 - p.y * p.y)));
+
+        float d_seam = min(d1, min(d2, min(d3 * 0.9, d4)));
+
+        // Anti-aliased seam mask (black rubber rib)
+        float seam_mask = 1.0 - smoothstep(0.020, 0.045, d_seam);
+
+        // High frequency pebbled leather grain
+        float pebble = 0.5 + 0.5 * sin(p.x * 200.0) * sin(p.y * 200.0) * sin(p.z * 200.0);
+        float grain = 0.92 + 0.12 * pebble;
+
+        // Rich warm leather color palette
+        vec3 leather_color = vec3(0.92, 0.42, 0.13) * grain;
+        vec3 rubber_black = vec3(0.06, 0.05, 0.05);
+
+        albedo = mix(leather_color, rubber_black, seam_mask);
+        spec_strength = mix(0.35, 0.08, seam_mask);
+        shininess = mix(20.0, 6.0, seam_mask);
+
+        // Groove normal perturbation (dip into seam)
+        N = normalize(N - seam_mask * 0.25 * N);
+        NdotL = max(dot(N, L), 0.0);
+        NdotH = max(dot(N, H), 0.0);
+
     } else if (u_skin == 1) { // CHROME
-        albedo = vec3(0.78, 0.82, 0.88);
+        albedo = vec3(0.80, 0.84, 0.90);
         shininess = 128.0;
-        spec_strength = 1.4;
+        spec_strength = 1.6;
         ambient = 0.35;
-        albedo += vec3(0.2, 0.3, 0.4) * fresnel;
+        // Mirror reflection & Fresnel iridescence
+        vec3 refl = reflect(-V, N);
+        float env_grad = 0.5 + 0.5 * refl.y;
+        albedo = mix(vec3(0.3, 0.4, 0.55), vec3(0.95, 0.98, 1.0), env_grad) + vec3(0.15, 0.35, 0.6) * fresnel;
+
     } else if (u_skin == 2) { // TENNIS
-        float seam = abs(sin(v_uv.x * 6.283) * 0.3 - (v_uv.y - 0.5));
-        if (seam < 0.05) {
-            albedo = vec3(0.92, 0.92, 0.88);
-            spec_strength = 0.1;
-        } else {
-            albedo = vec3(0.75, 0.88, 0.18);
-            spec_strength = 0.2;
-        }
-        shininess = 8.0;
-    } else if (u_skin == 3) { // NEON
-        vec3 cyan = vec3(0.0, 0.9, 1.0);
+        // 3D curved tennis ball seam
+        float tennis_seam_dist = abs(p.x * p.y - 0.36 * p.z);
+        float t_seam = 1.0 - smoothstep(0.025, 0.055, tennis_seam_dist);
+
+        vec3 felt_color = vec3(0.78, 0.88, 0.16);
+        vec3 seam_white = vec3(0.92, 0.94, 0.92);
+
+        albedo = mix(felt_color, seam_white, t_seam);
+        spec_strength = mix(0.15, 0.30, t_seam);
+        shininess = mix(8.0, 16.0, t_seam);
+        ambient = 0.35;
+        // Velvety felt rim glow (inverted Fresnel)
+        albedo += felt_color * (1.0 - NdotV) * 0.35;
+
+    } else if (u_skin == 3) { // NEON / CYBER
+        vec3 cyan = vec3(0.0, 0.95, 1.0);
         vec3 magenta = vec3(1.0, 0.1, 0.8);
         float pulse = 0.5 + 0.5 * sin(u_time * 4.0);
-        albedo = mix(cyan, magenta, pulse * 0.7 + v_uv.y * 0.3);
-        spec_strength = 1.2;
+        float grid_p = sin(p.x * 24.0) * sin(p.y * 24.0) * sin(p.z * 24.0);
+        float grid_mask = smoothstep(0.1, 0.4, abs(grid_p));
+
+        albedo = mix(cyan, magenta, pulse * 0.6 + (p.y * 0.5 + 0.5) * 0.4);
+        albedo = mix(albedo * 0.35, albedo, grid_mask);
+        spec_strength = 1.3;
         shininess = 64.0;
-        ambient = 0.6;
-        albedo += mix(magenta, cyan, pulse) * fresnel * 2.0;
+        ambient = 0.65;
+        albedo += mix(magenta, cyan, pulse) * fresnel * 2.5;
     }
 
     float diff = NdotL;
@@ -418,12 +457,16 @@ class GPURoomRenderer:
         base_color=(1.0, 1.0, 1.0, 1.0),
         is_hand_joint: bool = False,
         timestamp: float = 0.0,
+        aspect: float = 1.0,
     ) -> None:
-        """Render 3D sphere at world position with model transform and GLSL lighting."""
+        """Render 3D sphere at world position with model transform, aspect compensation, and GLSL lighting."""
         wx, wy, wz = self._to_world_coords(x, y, z)
-        # Isotropic scaling across all 3 dimensions
+        # Isotropic aspect-corrected scaling:
+        # In NDC space, X spans [-1, 1] across width W, Y spans [-1, 1] across height H.
+        # To maintain 1:1 pixel aspect ratio on non-square viewports (aspect = width / height),
+        # the vertical radius in NDC must be scaled by aspect so that DeltaX_px == DeltaY_px.
         rx = radius * 2.0
-        ry = radius * 2.0
+        ry = radius * 2.0 * aspect
         rz = radius * 2.0
 
         # Model matrix: Translate * Scale (row-major)
@@ -489,6 +532,9 @@ class GPURoomRenderer:
             time_since_impact = ts - engine.last_wall_impact_time
             if 0.0 <= time_since_impact <= 0.35 and (ts - self.wall_glow_time) > 0.35:
                 self.trigger_wall_pulse(timestamp=engine.last_wall_impact_time, color=(0, 255, 255))
+
+        # Viewport aspect ratio for isotropic 1:1 circular geometry on non-square screens
+        aspect = float(w) / float(max(1, h))
 
         # 1. Setup Offscreen FBO & Viewport
         self._ensure_fbo(w, h)
@@ -557,10 +603,25 @@ class GPURoomRenderer:
         # Ceiling front edge
         grid_lines.append((corners_front[0], corners_front[1], (100.0 / 255.0, 70.0 / 255.0, 140.0 / 255.0, 1.0)))
 
-        # D. Ball Altitude Vertical Drop-Line
+        # D. Ball Spatial Grounding: Altitude Drop-Line & 3D Floor Target Ring
         bx, by, bz = engine.ball.position
-        if by < floor_y - 0.02:
+        if by < floor_y - 0.01:
             grid_lines.append(((bx, by, bz), (bx, floor_y, bz), (120.0 / 255.0, 100.0 / 255.0, 160.0 / 255.0, 0.8)))
+
+        # Concentric 3D Floor Target Ring underneath the ball
+        ring_radius = max(0.02, engine.ball.radius * 0.85)
+        num_ring_pts = 16
+        ring_pts = []
+        for k in range(num_ring_pts):
+            theta = 2.0 * math.pi * k / num_ring_pts
+            rx_k = bx + ring_radius * math.cos(theta)
+            rz_k = bz + ring_radius * 0.65 * math.sin(theta)
+            ring_pts.append((rx_k, floor_y, rz_k))
+
+        for k in range(num_ring_pts):
+            p_a = ring_pts[k]
+            p_b = ring_pts[(k + 1) % num_ring_pts]
+            grid_lines.append((p_a, p_b, (160.0 / 255.0, 110.0 / 255.0, 220.0 / 255.0, 0.75)))
 
         self._draw_lines(grid_lines, mvp_mat)
 
@@ -578,7 +639,7 @@ class GPURoomRenderer:
             for a, b in HAND_CONNECTIONS:
                 hand_lines.append((joint_pts_3d[a], joint_pts_3d[b], bone_col))
 
-            # Joint Spheres
+            # Joint Spheres (with aspect compensation)
             for i, p in enumerate(joint_pts_3d):
                 r = 0.012 if i in (4, 8, 12, 16, 20) else 0.008
                 self._draw_sphere(
@@ -588,12 +649,13 @@ class GPURoomRenderer:
                     base_color=joint_col,
                     is_hand_joint=True,
                     timestamp=ts,
+                    aspect=aspect,
                 )
 
         if hand_lines:
             self._draw_lines(hand_lines, mvp_mat)
 
-        # 6. Render 3D Shaded AR Physics Ball
+        # 6. Render 3D Shaded AR Physics Ball (with aspect compensation)
         skin_id = 0
         if skin == BallSkin.CHROME or (isinstance(skin, str) and skin.lower() == "chrome"):
             skin_id = 1
@@ -609,6 +671,7 @@ class GPURoomRenderer:
             skin=skin_id,
             is_hand_joint=False,
             timestamp=ts,
+            aspect=aspect,
         )
 
         # 7. Readout RGBA Frame from FBO
@@ -627,7 +690,10 @@ class GPURoomRenderer:
 
         frame[:] = rendered_bgr
 
-        # 8. Render Picture-in-Picture (PIP) live camera preview
+        # 8. Render Soft Floor Contact Shadow & Altitude Indicators
+        self.cpu_room_renderer._render_ball_spatial_indicators(frame, engine.ball, w, h)
+
+        # 9. Render Picture-in-Picture (PIP) live camera preview
         if self.show_pip and raw_webcam is not None:
             self.cpu_room_renderer._render_pip_webcam(frame, raw_webcam, w, h)
 

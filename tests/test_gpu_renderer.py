@@ -219,3 +219,59 @@ def test_demo_parser_gpu_flags():
 
     args2 = parser.parse_args(["--gpu"])
     assert args2.gpu_render is True
+
+
+def test_aspect_ratio_isotropic_pixel_scaling():
+    """Verify that scaling ry by viewport aspect ratio produces equal pixel dimensions on any display."""
+    focal_depth = 0.85
+    mvp_mat = make_ortho_or_perspective_matrix(focal_depth=focal_depth)
+
+    # Test wide viewports: 1280x720 (16:9), 640x320 (2:1), 640x480 (4:3)
+    for width, height in [(1280, 720), (640, 320), (640, 480), (1920, 1080)]:
+        aspect = float(width) / float(height)
+        radius = 0.05
+
+        rx = radius * 2.0
+        ry = radius * 2.0 * aspect
+        rz = radius * 2.0
+
+        model_mat = np.array([
+            [rx,  0.0, 0.0, 0.0],
+            [0.0, ry,  0.0, 0.0],
+            [0.0, 0.0, rz,  0.0],
+            [0.0, 0.0, 0.0, 1.0],
+        ], dtype=np.float32)
+
+        final_mvp = np.dot(mvp_mat, model_mat)
+
+        # X pole vertex (1, 0, 0)
+        vx = np.dot(final_mvp, np.array([1.0, 0.0, 0.0, 1.0], dtype=np.float32))
+        ndc_x = vx[0] / vx[3]
+        pix_x = ndc_x * (width / 2.0)
+
+        # Y pole vertex (0, 1, 0)
+        vy = np.dot(final_mvp, np.array([0.0, 1.0, 0.0, 1.0], dtype=np.float32))
+        ndc_y = vy[1] / vy[3]
+        pix_y = ndc_y * (height / 2.0)
+
+        # Pixel span horizontally must exactly match pixel span vertically (1:1 circular sphere)
+        assert np.isclose(abs(pix_x), abs(pix_y), atol=1e-4)
+        assert np.isclose(abs(pix_x), radius * width, atol=1e-4)
+
+
+def test_gpu_floor_indicators_and_shadows():
+    """Verify that floor shadow and altitude drop-line indicators are rendered in GPURoomRenderer."""
+    renderer = GPURoomRenderer(focal_depth=0.85)
+    engine = ARPhysicsEngine()
+    # Place ball at altitude above floor (floor is at y = 0.95)
+    engine.ball.position = (0.5, 0.5, 0.0)
+
+    frame = np.zeros((360, 640, 3), dtype=np.uint8)
+    out = renderer.render_room(frame, engine, hands=[], timestamp=2.0, skin=BallSkin.BASKETBALL)
+
+    assert out is frame
+    assert frame.shape == (360, 640, 3)
+    # Ensure floor area has rendered shadow/grid pixels
+    floor_pixel_y = int(0.95 * (360 - 1))
+    assert np.any(frame[floor_pixel_y - 20:floor_pixel_y + 10, :] > 0)
+

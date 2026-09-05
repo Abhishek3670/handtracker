@@ -1,6 +1,10 @@
 opencv-python
 mediapipe
 numpy
+pyyaml
 
 [dev]
 pytest
+
+[gpu]
+moderngl>=5.8.0
