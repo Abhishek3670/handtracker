@@ -114,7 +114,17 @@ class HandTrackingPipeline:
         if self.canvas:
             self.canvas.render(output)
         if self.ar_physics is not None and self.ar_renderer is not None:
-            self.ar_renderer.draw(output, self.ar_physics, smoothed, timestamp=timestamp)
+            proj_fn = self.room_renderer.project_3d if self.room_renderer is not None else None
+            focal_depth = getattr(self.room_renderer, "focal_depth", 0.85) if self.room_renderer is not None else 0.85
+            self.ar_renderer.draw(
+                output,
+                self.ar_physics,
+                smoothed,
+                timestamp=timestamp,
+                virtual_room=self.virtual_room,
+                projection_fn=proj_fn,
+                focal_depth=focal_depth,
+            )
         if self.media_hud and self.media_controller is not None:
             self.media_hud.draw(output, self.media_controller, timestamp=timestamp)
         render_ms = (time.perf_counter() - render_start) * 1000

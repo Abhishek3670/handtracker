@@ -56,3 +56,35 @@ def test_ball_renderer_draws_on_synthetic_frame():
     out = renderer.draw(frame, engine, hands=[hand], timestamp=10.1)
     assert out is frame
     assert int(frame.sum()) > 0
+
+
+def test_ball_renderer_perspective_alignment_and_shadow_suppression():
+    from handtracking.ar.room import Virtual3DRoomRenderer
+    renderer = BallRenderer(skin=BallSkin.NEON)
+    room = Virtual3DRoomRenderer(focal_depth=0.85)
+    engine = ARPhysicsEngine()
+    # Position ball in front of palm plane (z < 0)
+    engine.ball.position = (0.5, 0.4, -0.12)
+    hand = make_test_hand()
+
+    # 1. Virtual Room Mode (virtual_room=True)
+    frame_vr = np.zeros((240, 320, 3), dtype=np.uint8)
+    renderer.draw(
+        frame_vr,
+        engine,
+        hands=[hand],
+        timestamp=1.0,
+        virtual_room=True,
+        projection_fn=room.project_3d,
+    )
+    # The projected center of the ball must match room.project_3d
+    expected_u, expected_v = room.project_3d(0.5, 0.4, -0.12, 320, 240)
+    assert frame_vr[expected_v, expected_u].sum() > 0
+
+    # 2. When virtual_room=False, palm shadow draws on frame (at palm projection point y ~ 96, x ~ 160)
+    frame_ar = np.zeros((240, 320, 3), dtype=np.uint8)
+    # Draw palm shadows specifically
+    renderer._draw_palm_shadows(frame_ar, engine.ball, [hand], 320, 240)
+    assert frame_ar[96, 160].sum() > 0
+
+

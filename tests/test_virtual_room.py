@@ -95,3 +95,34 @@ def test_demo_parser_virtual_room_flags():
 
     args3 = parser.parse_args(["-vr"])
     assert args3.virtual_room is True
+
+
+def test_pipeline_forwards_projection_fn_to_ar_renderer():
+    captured_kwargs = []
+
+    class MockRenderer:
+        def draw(self, frame, engine, hands=(), timestamp=None, **kwargs):
+            captured_kwargs.append(kwargs)
+            return frame
+
+    class MockDetector:
+        def detect(self, frame):
+            from handtracking.inference.models import DetectionResult
+            return DetectionResult(hands=(make_test_hand(),), timestamp=1.0)
+
+    pipe = HandTrackingPipeline(
+        detector=MockDetector(),
+        ar_physics=ARPhysicsEngine(),
+        ar_renderer=MockRenderer(),
+        virtual_room=True,
+    )
+
+    frame = np.zeros((240, 320, 3), dtype=np.uint8)
+    pipe.process_frame(frame)
+
+    assert len(captured_kwargs) == 1
+    assert captured_kwargs[0]["virtual_room"] is True
+    assert captured_kwargs[0]["projection_fn"] is not None
+    assert callable(captured_kwargs[0]["projection_fn"])
+    pipe.close()
+

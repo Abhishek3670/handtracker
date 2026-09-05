@@ -188,6 +188,16 @@ flowchart TD
   - Update HUD instruction bar and help modal with `'v'` hotkey description.
   - Add `--virtual-room` / `--virtual-space` / `-vr` flags in `demo.py`.
 
+### Milestone 12: 3D Virtual Space Perspective Camera Alignment & Unified Spatial Shadows [COMPLETED]
+- [x] **Unified 3D Perspective Projection for Ball (`handtracking.ar.renderer`)**:
+  - Accept optional `projection_fn` / `virtual_room` in `BallRenderer.draw()`.
+  - In 3D space mode, project ball center $(X, Y, Z)$ with `project_3d()` and depth scale `1.0 / (1.0 + z * focal_depth)`, perfectly locking the ball sprite directly over its vertical altitude drop-line and 3D floor shadow.
+- [x] **Shadow Layer De-Duplication (`handtracking.ar.renderer` & `room`)**:
+  - Suppress 2D palm drop shadow (`_draw_palm_shadows`) when in 3D Virtual Room mode, eliminating duplicate/misplaced shadows.
+  - Refine 3D floor shadow and altitude guide plumb line rendering in `Virtual3DRoomRenderer` for clean, unambiguous depth perception.
+- [x] **Pipeline & Integration (`handtracking.pipeline`)**:
+  - Forward `virtual_room` flag and projection function from `Virtual3DRoomRenderer` to `BallRenderer`.
+
 ### Phase 3 / Future Extensions: Deep Learning Sequence Models [ON HOLD / DEFERRED]
 - [ ] Continuous American Sign Language (ASL) sentence recognition via Temporal Transformer / BiLSTM sequence models over 3D landmark streams.
 - [ ] Dense 3D Hand Mesh Estimation (e.g. MANO 778-vertex surface mesh via ONNX Runtime / DirectML GPU).
@@ -219,4 +229,6 @@ flowchart TD
 - **WO-011** (Milestone 10): Hand Tracking Sensitivity, Dynamic Gesture Calibration & 2.5D AR Physics Collision Engine.
   - **Worker**: `codex` | **QA**: `gemma` | **Status**: `COMPLETED` (Commit `0a2bbdf`)
 - **WO-012** (Milestone 11): Digital 3D Cyber-Space Environment for AR Ball Physics & Holographic Hand Rendering.
+  - **Worker**: `codex` | **QA**: `gemma` | **Status**: `COMPLETED` (Commit `5ff001b`)
+- **WO-013** (Milestone 12): 3D Virtual Space Perspective Camera Alignment & Unified Spatial Shadows.
   - **Worker**: `codex` | **QA**: `gemma` | **Status**: `COMPLETED`

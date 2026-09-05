@@ -61,20 +61,33 @@ class BallRenderer:
         engine: ARPhysicsEngine,
         hands: Iterable[HandLandmarks] = (),
         timestamp: float | None = None,
+        virtual_room: bool = False,
+        projection_fn: Any = None,
+        focal_depth: float = 0.85,
     ) -> np.ndarray:
         """Draw complete AR physics scene: shadows, ball, ripples, and HUD in-place on frame."""
         ts = time.time() if timestamp is None else float(timestamp)
         h, w = frame.shape[:2]
         ball = engine.ball
 
-        # 1. Draw dynamic palm drop shadows
-        self._draw_palm_shadows(frame, ball, hands, w, h)
+        # 1. Draw dynamic palm drop shadows (suppressed in virtual 3D room to avoid dual shadows)
+        if not virtual_room:
+            self._draw_palm_shadows(frame, ball, hands, w, h)
 
         # 2. Draw impact ripples
         self._draw_ripples(frame, engine.ripples, w, h)
 
         # 3. Draw 3D shaded ball
-        self._draw_ball(frame, ball, w, h, ts)
+        self._draw_ball(
+            frame,
+            ball,
+            w,
+            h,
+            ts,
+            virtual_room=virtual_room,
+            projection_fn=projection_fn,
+            focal_depth=focal_depth,
+        )
         return frame
 
     render = draw
@@ -87,9 +100,6 @@ class BallRenderer:
         width: int,
         height: int,
     ) -> None:
-        if cv2 is None:
-            return
-
         for hand in hands:
             palm = PalmCollider.from_hand(hand)
             dist = palm.distance_to_plane(ball.position)
@@ -104,9 +114,19 @@ class BallRenderer:
                 shadow_r = max(6, round(ball.radius * width * (0.6 + 0.6 * dist_factor)))
                 shadow_alpha = max(0.15, 0.65 * (1.0 - dist_factor))
 
-                overlay = frame.copy()
-                cv2.ellipse(overlay, (px, py), (shadow_r, round(shadow_r * 0.6)), 0, 0, 360, (15, 15, 15), -1)
-                cv2.addWeighted(overlay, shadow_alpha, frame, 1.0 - shadow_alpha, 0, frame)
+                if cv2 is not None:
+                    overlay = frame.copy()
+                    cv2.ellipse(overlay, (px, py), (shadow_r, round(shadow_r * 0.6)), 0, 0, 360, (15, 15, 15), -1)
+                    cv2.addWeighted(overlay, shadow_alpha, frame, 1.0 - shadow_alpha, 0, frame)
+                else:
+                    y_min = max(0, py - round(shadow_r * 0.6))
+                    y_max = min(height, py + round(shadow_r * 0.6))
+                    x_min = max(0, px - shadow_r)
+                    x_max = min(width, px + shadow_r)
+                    if y_max > y_min and x_max > x_min:
+                        frame[y_min:y_max, x_min:x_max] = (
+                            frame[y_min:y_max, x_min:x_max] * (1.0 - shadow_alpha) + np.array([15, 15, 15]) * shadow_alpha
+                        ).astype(np.uint8)
 
     def _draw_ripples(
         self,
@@ -236,11 +256,19 @@ class BallRenderer:
         width: int,
         height: int,
         ts: float,
+        virtual_room: bool = False,
+        projection_fn: Any = None,
+        focal_depth: float = 0.85,
     ) -> None:
-        cx = round(ball.position[0] * (width - 1))
-        cy = round(ball.position[1] * (height - 1))
-        # Perspective scaling by z-depth
-        z_scale = 1.0 / max(0.4, 1.0 + ball.position[2] * 1.5)
+        if virtual_room and projection_fn is not None:
+            cx, cy = projection_fn(ball.position[0], ball.position[1], ball.position[2], width, height)
+            z_scale = 1.0 / max(0.25, 1.0 + ball.position[2] * focal_depth)
+        else:
+            cx = round(ball.position[0] * (width - 1))
+            cy = round(ball.position[1] * (height - 1))
+            # Perspective scaling by z-depth
+            z_scale = 1.0 / max(0.4, 1.0 + ball.position[2] * 1.5)
+
         radius_px = max(8, round(ball.radius * width * z_scale))
 
         if cv2 is not None:
