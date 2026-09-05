@@ -97,7 +97,7 @@ def test_heart_mesh_generation():
 def test_heart_state_defaults():
     """Verify default values and configuration in HeartState."""
     state = HeartState()
-    assert state.min_scale == 0.075
+    assert state.min_scale == 0.0
     assert state.max_scale == 1.0
     assert state.base_radius == 0.140
     assert state.color_bgr == (193, 182, 255)  # Baby Pink #FFB6C1
@@ -135,14 +135,14 @@ def test_heart_engine_step_and_scaling():
     assert abs(state.position[0] - 0.4) < 0.1
     assert abs(state.position[1] - 0.6) < 0.1
 
-    # 2. Step with closed fist (shrinks heart towards seed scale)
+    # 2. Step with closed fist (shrinks heart towards 0 scale)
     closed_hand = make_synthetic_hand(is_open=False, center_x=0.4, center_y=0.6)
     for step_i in range(30):
         t = 0.5 + step_i * 0.033
         state = engine.step([closed_hand], timestamp=t)
 
     assert state.openness < 0.30
-    assert state.scale < 0.40  # Shrinking towards min_scale 0.15
+    assert state.scale < 0.35  # Shrinking towards min_scale 0.0
     assert state.scale >= state.min_scale - 0.05
 
     # 3. Step with no hands (fades out)
@@ -170,7 +170,7 @@ def test_heart_activation_on_open_palm_only():
     assert state_open.is_visible is True
     assert state_open.is_activated is True
 
-    # 3. Closing palm after activation -> stays tracked and shrinks
+    # 3. Closing palm after activation -> stays tracked and shrinks towards 0
     for i in range(15):
         state_shrunk = engine.step([closed_hand], timestamp=0.3 + i * 0.033)
     assert state_shrunk.is_visible is True
@@ -314,4 +314,36 @@ def test_heart_suppression_on_back_of_hand():
     for i in range(10):
         state = engine.step([back_hand], timestamp=1.0 + i * 0.033)
     assert state.is_visible is False
+
+
+def test_heart_disappears_on_completely_closed_fist():
+    """Verify digital heart disappears entirely when fist is completely closed and reappears on open palm."""
+    engine = ARHeartEngine(enabled=True)
+    palm_hand = make_synthetic_hand(is_open=True, facing_palm=True)
+    closed_hand = make_synthetic_hand(is_open=False, facing_palm=True)
+
+    # 1. Open palm -> heart renders on frame
+    for i in range(10):
+        engine.step([palm_hand], timestamp=i * 0.033)
+
+    frame_open = np.zeros((480, 640, 3), dtype=np.uint8)
+    out_open = engine.draw(frame_open, timestamp=0.33)
+    assert np.any(out_open > 0)  # Rendered on open palm
+
+    # 2. Completely close fist -> heart shrinks and disappears completely (no colored pixels rendered)
+    for i in range(40):
+        engine.step([closed_hand], timestamp=0.5 + i * 0.033)
+
+    frame_closed = np.zeros((480, 640, 3), dtype=np.uint8)
+    out_closed = engine.draw(frame_closed, timestamp=2.0)
+    assert not np.any(out_closed > 0)  # Completely disappeared!
+
+    # 3. Open palm again -> heart seamlessly reappears and renders
+    for i in range(15):
+        engine.step([palm_hand], timestamp=2.5 + i * 0.033)
+
+    frame_reopen = np.zeros((480, 640, 3), dtype=np.uint8)
+    out_reopen = engine.draw(frame_reopen, timestamp=3.0)
+    assert np.any(out_reopen > 0)  # Reappeared and blooming!
+
 

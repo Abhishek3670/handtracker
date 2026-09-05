@@ -32,7 +32,7 @@ class HeartState:
     is_visible: bool = False
     is_activated: bool = False
     alpha: float = 1.0
-    min_scale: float = 0.075
+    min_scale: float = 0.0
     max_scale: float = 1.0
     base_radius: float = 0.140
     color_bgr: tuple[int, int, int] = (193, 182, 255)       # Baby Pink #FFB6C1
@@ -150,7 +150,7 @@ class ARHeartEngine:
     def __init__(
         self,
         enabled: bool = True,
-        min_scale: float = 0.075,
+        min_scale: float = 0.0,
         max_scale: float = 1.0,
         base_radius: float = 0.140,
         pulse_bpm: float = 75.0,
@@ -299,7 +299,18 @@ class ARHeartEngine:
         focal_depth: float = 0.85,
     ) -> np.ndarray:
         """Render glowing baby-pink digital heart, aura, specular gloss, and sparkles on frame."""
-        if not self.enabled or not self.state.is_visible or self.state.alpha <= 0.01:
+        # Smooth fade-out curve when closing into a tight fist (disappears completely when fist is closed)
+        if self.state.openness <= 0.04:
+            openness_fade = 0.0
+        elif self.state.openness < 0.22:
+            f = (self.state.openness - 0.04) / 0.18
+            openness_fade = f * f * (3.0 - 2.0 * f)  # Smoothstep transition
+        else:
+            openness_fade = 1.0
+
+        render_alpha = self.state.alpha * openness_fade
+
+        if not self.enabled or not self.state.is_visible or render_alpha <= 0.01:
             return frame
 
         h, w = frame.shape[:2]
@@ -323,11 +334,14 @@ class ARHeartEngine:
         # 2. Compute Animated Heart Radius with Heartbeat Pulse & Depth Scale
         phase = self.state.pulse_phase
         lub_dub = math.sin(phase) + 0.35 * math.sin(2.0 * phase - 0.5)
-        pulse_amp = 0.05 * self.state.openness  # Pulsing dampens when closed into seed
-        effective_scale = self.state.scale * (1.0 + pulse_amp * lub_dub)
+        pulse_amp = 0.05 * self.state.openness  # Pulsing dampens when closed
+        effective_scale = max(0.0, self.state.scale * (1.0 + pulse_amp * lub_dub))
 
         base_px_radius = self.state.base_radius * min(w, h)
-        radius = max(6.0, base_px_radius * effective_scale * depth_scale)
+        radius = base_px_radius * effective_scale * depth_scale
+
+        if radius < 1.0:
+            return frame
 
         if cv2 is None:
             # Fallback direct pixel dot
@@ -336,11 +350,11 @@ class ARHeartEngine:
             return frame
 
         # 3. Render Layered Heart Visuals (OpenCV AA)
-        self._render_aura_glow(frame, px, py, radius, self.state.alpha)
-        self._render_heart_body(frame, px, py, radius, self.state.alpha)
-        self._render_specular_sheen(frame, px, py, radius, self.state.alpha)
+        self._render_aura_glow(frame, px, py, radius, render_alpha)
+        self._render_heart_body(frame, px, py, radius, render_alpha)
+        self._render_specular_sheen(frame, px, py, radius, render_alpha)
         if self.state.openness > 0.4:
-            self._render_sparkles(frame, px, py, radius, ts, self.state.alpha * self.state.openness)
+            self._render_sparkles(frame, px, py, radius, ts, render_alpha * self.state.openness)
 
         return frame
 
