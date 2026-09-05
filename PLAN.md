@@ -242,6 +242,22 @@ flowchart TD
 - [x] **Prevented 2D Indicator Overdraw**:
   - Removed post-render 2D indicator overlay that was drawing over the 3D rendered ball.
 
+### Milestone 18: Production Readiness & Comprehensive Documentation [COMPLETED]
+- [x] **Production Packaging & Build Metadata (`pyproject.toml`, `requirements.txt`, `VERSION`, `LICENSE`)**:
+  - Version bump to `1.0.0` with MIT License, package metadata, classifiers, and keywords.
+  - Added entry-point console scripts `handtracking` and `handtracking-demo`.
+  - Optional dependency extras for GPU acceleration (`moderngl`, `glcontext`) and development (`pytest`).
+- [x] **Comprehensive Production Documentation (`README.md`)**:
+  - Mermaid architecture pipeline diagram.
+  - Exhaustive feature breakdown across 10 subsystems.
+  - Complete CLI argument documentation and interactive hotkey matrix.
+  - 10 static geometric + 7 dynamic temporal gestures cheat sheet.
+  - Touchless media controller setup, state machine lifecycle, and YAML configuration.
+  - ModernGL shader pipeline, 3-point lighting model, and 4 PBR material skins.
+  - Test suite documentation with 92 passing unit tests across 16 test modules.
+- [x] **Semantic Changelog (`CHANGELOG.md`)**:
+  - Full release notes for `1.0.0` detailing all features, modules, and improvements.
+
 ### Phase 3 / Future Extensions: Deep Learning Sequence Models [ON HOLD / DEFERRED]
 - [ ] Continuous American Sign Language (ASL) sentence recognition via Temporal Transformer / BiLSTM sequence models over 3D landmark streams.
 - [ ] Dense 3D Hand Mesh Estimation (e.g. MANO 778-vertex surface mesh via ONNX Runtime / DirectML GPU).
@@ -285,4 +301,7 @@ flowchart TD
 - **WO-017** (Milestone 16): Fix GPU Aspect Ratio Sphere Distortion, Enhance Procedural Ball Shaders & Add 3D Floor Shadow Indicators.
   - **Worker**: `codex` | **QA**: `gemma` | **Status**: `COMPLETED` (Commit `fd5d75a`)
 - **WO-018** (Milestone 17): Photorealistic 3D Ball Engine, 3-Point Studio Lighting, Bump-Mapped Leather & Physics Spin.
+  - **Worker**: `codex` | **QA**: `gemma` | **Status**: `COMPLETED` (Commit `1874148`)
+- **WO-019** (Milestone 18): Production Readiness & Comprehensive Documentation (`README.md`, `pyproject.toml`, `CHANGELOG.md`, `requirements.txt`, `LICENSE`).
   - **Worker**: `codex` | **QA**: `gemma` | **Status**: `COMPLETED`
+

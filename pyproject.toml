@@ -4,19 +4,60 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "handtracking"
-version = "0.1.0"
-description = "Low-latency real-time hand tracking"
+version = "1.0.0"
+description = "Real-time zero-lag hand tracking, 3D gesture recognition, AR physics, and ModernGL GPU shader engine"
+readme = "README.md"
 requires-python = ">=3.10"
-dependencies = [
-    "opencv-python",
+license = {text = "MIT"}
+authors = [
+    {name = "Abhishek"}
+]
+keywords = [
+    "hand-tracking",
     "mediapipe",
-    "numpy",
-    "pyyaml",
+    "computer-vision",
+    "augmented-reality",
+    "moderngl",
+    "gestures",
+    "real-time",
+    "physics-engine",
+    "air-canvas"
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Image Processing",
+    "Topic :: Multimedia :: Graphics",
+]
+dependencies = [
+    "opencv-python>=4.8.0",
+    "mediapipe>=0.10.14",
+    "numpy>=1.24.0",
+    "pyyaml>=6.0",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest"]
-gpu = ["moderngl>=5.8.0"]
+dev = ["pytest>=7.0.0"]
+gpu = [
+    "moderngl>=5.8.0",
+    "glcontext>=3.0.0",
+]
+all = [
+    "moderngl>=5.8.0",
+    "glcontext>=3.0.0",
+    "pytest>=7.0.0",
+]
+
+[project.scripts]
+handtracking = "handtracking.demo:main"
+handtracking-demo = "handtracking.demo:main"
 
 [tool.setuptools.packages.find]
 include = ["handtracking*"]
+
