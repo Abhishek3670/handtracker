@@ -4,22 +4,27 @@ from handtracking.visualization import HUDOverlay, MediaHUDOverlay, PipelineTele
 from handtracking.inference.models import BoundingBox, HandLandmarks, Handedness, Landmark3D
 from handtracking.controllers import ControllerStateMachine, KeySynthesizer, MediaController
 
+
 def make_hand():
-    points = tuple(Landmark3D(.2 + i*.01, .2 + i*.005, 0) for i in range(21))
-    return HandLandmarks(points, Handedness("Left", .9), BoundingBox.from_landmarks(points))
+    points = tuple(Landmark3D(0.2 + i * 0.01, 0.2 + i * 0.005, 0) for i in range(21))
+    return HandLandmarks(points, Handedness("Left", 0.9), BoundingBox.from_landmarks(points))
+
 
 def test_stage_timer_and_telemetry_metrics():
-    with StageTimer() as timer: pass
+    with StageTimer() as timer:
+        pass
     assert timer.elapsed_us >= 0
     telemetry = PipelineTelemetry()
     telemetry.record(StageLatency(total_ms=2), 0)
-    telemetry.record(StageLatency(total_ms=4), .1)
+    telemetry.record(StageLatency(total_ms=4), 0.1)
     assert telemetry.instant_fps == 10
     assert telemetry.averages().total_ms == 3
+
 
 def test_hud_draws_in_place_on_synthetic_frame():
     frame = np.zeros((64, 64, 3), dtype=np.uint8)
     assert HUDOverlay().draw(frame) is frame
+
 
 def test_hud_draws_pinch_and_stage_telemetry():
     frame = np.zeros((64, 64, 3), dtype=np.uint8)
@@ -43,6 +48,56 @@ def test_hud_temporal_gesture_notifications():
     frame2 = np.zeros((100, 100, 3), dtype=np.uint8)
     hud.draw(frame2, timestamp=20.0)
     assert len(hud.notifications) == 0
+
+
+def test_hud_instruction_bar_modes():
+    frame = np.zeros((120, 200, 3), dtype=np.uint8)
+    hud = HUDOverlay()
+
+    # Default instructions
+    hud.draw(frame, mode="default")
+    assert int(frame.sum()) > 0
+
+    # AR Ball mode instructions
+    frame.fill(0)
+    hud.draw(frame, ar_active=True)
+    assert int(frame.sum()) > 0
+
+    # Media mode instructions
+    frame.fill(0)
+    hud.draw(frame, media_active=True)
+    assert int(frame.sum()) > 0
+
+    # Canvas mode instructions
+    frame.fill(0)
+    hud.draw(frame, canvas_active=True)
+    assert int(frame.sum()) > 0
+
+    # Disabled instructions bar
+    frame.fill(0)
+    hud.show_instructions = False
+    hud.draw(frame)
+    assert int(frame.sum()) == 0
+
+
+def test_hud_help_modal_toggle_and_render():
+    frame = np.zeros((300, 400, 3), dtype=np.uint8)
+    hud = HUDOverlay()
+    assert hud.show_help is False
+
+    # Help modal closed
+    hud.draw(frame)
+
+    # Toggle help modal open
+    hud.show_help = True
+    frame.fill(0)
+    hud.draw(frame)
+    assert int(frame.sum()) > 0
+
+    # Direct help modal drawing
+    frame.fill(0)
+    hud.draw_help_modal(frame)
+    assert int(frame.sum()) > 0
 
 
 def test_media_hud_overlay_renders_all_states():

@@ -78,7 +78,17 @@ class HandTrackingPipeline:
         gesture_ms = (time.perf_counter() - gesture_start) * 1000
 
         render_start = time.perf_counter()
-        output = self.hud.draw(frame, smoothed, gestures, self.telemetry, temporal_gestures=temporal_gestures, timestamp=timestamp)
+        output = self.hud.draw(
+            frame,
+            smoothed,
+            gestures,
+            self.telemetry,
+            temporal_gestures=temporal_gestures,
+            timestamp=timestamp,
+            ar_active=(self.ar_physics is not None),
+            media_active=(self.media_controller is not None),
+            canvas_active=(self.canvas is not None),
+        )
         if self.canvas:
             self.canvas.render(output)
         if self.ar_physics is not None and self.ar_renderer is not None:

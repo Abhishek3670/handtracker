@@ -159,6 +159,9 @@ def main(argv: list[str] | None = None) -> int:
                     else:
                         pipe.media_controller.state_machine.wake()
                         print("Media controller forced to ACTIVE.")
+                elif key == ord("h") and pipe.hud is not None:
+                    pipe.hud.show_help = not pipe.hud.show_help
+                    print(f"Help cheat sheet visible: {pipe.hud.show_help}")
                 elif key == ord("m") and pipe.media_hud is not None:
                     pipe.media_hud.enabled = not pipe.media_hud.enabled
                     print(f"Media HUD overlay enabled: {pipe.media_hud.enabled}")

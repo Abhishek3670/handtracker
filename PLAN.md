@@ -152,6 +152,14 @@ flowchart TD
   - CLI flag `--ar-ball` / `--mode ar`.
   - In-app hotkeys: `b` to spawn/reset ball, `s` to cycle ball skins, `g` to toggle gravity.
 
+### Milestone 9: Interactive On-Screen HUD Instructions & Help Cheat Sheet [COMPLETED]
+- [x] **Context-Aware Bottom HUD Instruction Bar**:
+  - Displays a clean, semi-transparent control pill at the bottom of the video window showing active gestures and hotkeys tailored to active modes (`--ar-ball`, `--media`, `--canvas`, default).
+- [x] **Interactive Full Help Card / Cheat Sheet (Hotkey `h`)**:
+  - Full-screen semi-transparent overlay detailing all 10 static gestures, temporal motions (swipes, circles, waves), AR physics interactions, media controller actions, and keyboard commands.
+- [x] **CLI & Pipeline Integration**:
+  - `pipe.hud.show_help` toggle in `demo.py` on `'h'` keypress.
+
 ### Phase 3 / Future Extensions: Deep Learning Sequence Models [ON HOLD / DEFERRED]
 - [ ] Continuous American Sign Language (ASL) sentence recognition via Temporal Transformer / BiLSTM sequence models over 3D landmark streams.
 - [ ] Dense 3D Hand Mesh Estimation (e.g. MANO 778-vertex surface mesh via ONNX Runtime / DirectML GPU).
@@ -177,4 +185,6 @@ flowchart TD
 - **WO-008** (Milestone 7): Touchless Media & Entertainment Controller (Wake State Machine, Config YAML, Radial Volume Dial & Media Key Synthesizer).
   - **Worker**: `codex` | **QA**: `gemma` | **Status**: `COMPLETED` (Commit `220032f`)
 - **WO-009** (Milestone 8): Augmented Reality (AR) 3D Physics & Photorealistic Ball Engine (Palm Bouncing, Grab & Throw, Shading & Skins).
+  - **Worker**: `codex` | **QA**: `gemma` | **Status**: `COMPLETED` (Commit `cca00bc`)
+- **WO-010** (Milestone 9): Interactive On-Screen HUD Instructions & Help Cheat Sheet Card.
   - **Worker**: `codex` | **QA**: `gemma` | **Status**: `COMPLETED`
