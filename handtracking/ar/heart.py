@@ -58,14 +58,16 @@ class PalmOpennessEstimator:
         p5 = (lm[5].x, lm[5].y)
         p17 = (lm[17].x, lm[17].y)
 
-        # 2D cross product of (P5 - P0) x (P17 - P0)
+        # 2D cross product of (P5 - P0) x (P17 - P0) in image coordinates (x right, y down)
+        # Right hand: Palm facing camera -> cross_z > 0; Back of hand -> cross_z < 0
+        # Left hand:  Palm facing camera -> cross_z < 0; Back of hand -> cross_z > 0
         cross_z = (p5[0] - p0[0]) * (p17[1] - p0[1]) - (p5[1] - p0[1]) * (p17[0] - p0[0])
 
         label = hand.handedness.label.strip().title() if hand.handedness else "Right"
         if label == "Right":
-            return cross_z < 0.002
-        else:
             return cross_z > -0.002
+        else:
+            return cross_z < 0.002
 
     @staticmethod
     def compute_openness(hand: HandLandmarks) -> float:

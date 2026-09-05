@@ -29,7 +29,7 @@ def make_synthetic_hand(
     points[0] = Landmark3D(center_x, center_y + 0.12, z)
 
     # Determine lateral orientation (Index vs Pinky) based on handedness and palmar/dorsal side
-    is_index_right = (handedness == "Right" and facing_palm) or (handedness == "Left" and not facing_palm)
+    is_index_right = (handedness == "Right" and not facing_palm) or (handedness == "Left" and facing_palm)
 
     if is_index_right:
         points[1] = Landmark3D(center_x + 0.04, center_y + 0.06, z)
