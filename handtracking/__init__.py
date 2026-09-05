@@ -3,6 +3,7 @@ from .capture.async_cam import AsyncWebcamCapture
 from .pipeline import HandTrackingPipeline
 from .config import MediaConfig
 from .controllers import MediaController, ControllerState, ControllerStateMachine, KeySynthesizer
+from .ar import ARPhysicsEngine, BallRenderer, BallSkin, PalmCollider, FingertipCollider
 
 __all__ = [
     "AsyncWebcamCapture",
@@ -12,4 +13,9 @@ __all__ = [
     "ControllerState",
     "ControllerStateMachine",
     "KeySynthesizer",
+    "ARPhysicsEngine",
+    "BallRenderer",
+    "BallSkin",
+    "PalmCollider",
+    "FingertipCollider",
 ]

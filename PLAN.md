@@ -134,21 +134,21 @@ flowchart TD
   - `--media` and `--config config.yaml` flags in `demo.py`.
   - In-app hotkey toggle (`m` to toggle media controller, `w` to toggle wake/sleep).
 
-### Milestone 8: Augmented Reality (AR) 3D Physics & Photorealistic Ball Engine [PLANNED]
-- [ ] **3D Hand Physics Colliders (`handtracking.ar.colliders`)**:
+### Milestone 8: Augmented Reality (AR) 3D Physics & Photorealistic Ball Engine [COMPLETED]
+- [x] **3D Hand Physics Colliders (`handtracking.ar.colliders`)**:
   - Palm Plane Collider derived from Wrist (0), Index MCP (5), and Pinky MCP (17) triangles.
   - Spherical Fingertip Colliders for all 5 fingertips (Thumb, Index, Middle, Ring, Pinky).
   - 3D Hand Velocity Estimator ($\vec{v} = \Delta \vec{p} / \Delta t$) for momentum transfer during hits, tosses, and bounces.
-- [ ] **Real-Time 3D Rigid-Body Physics Engine (`handtracking.ar.physics`)**:
+- [x] **Real-Time 3D Rigid-Body Physics Engine (`handtracking.ar.physics`)**:
   - 60 FPS numerical integrator (Verlet / Symplectic Euler) simulating 3D gravity, velocity damping, air drag, and bounce restitution ($e = 0.82$).
   - Interaction states: Free Flight, Palm Bouncing, Fingertip Volley, and Pinch-to-Grab / Throw.
   - Screen boundary and viewport elastic collisions.
-- [ ] **Photorealistic 3D Ball Renderer & Shading (`handtracking.ar.renderer`)**:
+- [x] **Photorealistic 3D Ball Renderer & Shading (`handtracking.ar.renderer`)**:
   - Blinn-Phong directional shading (ambient, diffuse, and sharp specular highlights with configurable light source).
   - Material skins: Basketball, Chrome Mirror Sphere, Tennis Ball, and Glowing Neon Orb.
   - Dynamic contact drop shadow projected onto palm surface and floor.
   - Visual impact ripple rings and speed trail particles on high-velocity throws.
-- [ ] **CLI & Interactive Controls**:
+- [x] **CLI & Interactive Controls**:
   - CLI flag `--ar-ball` / `--mode ar`.
   - In-app hotkeys: `b` to spawn/reset ball, `s` to cycle ball skins, `g` to toggle gravity.
 
@@ -175,6 +175,6 @@ flowchart TD
 - **WO-007** (Milestone 6): Model Complexity Toggle & Dynamic 3D Temporal Gesture Engine (Swipes, Air Canvas, Circles).
   - **Worker**: `codex` | **QA**: `gemma` | **Status**: `COMPLETED` (Commit `cf8a1ad`)
 - **WO-008** (Milestone 7): Touchless Media & Entertainment Controller (Wake State Machine, Config YAML, Radial Volume Dial & Media Key Synthesizer).
-  - **Worker**: `codex` | **QA**: `gemma` | **Status**: `COMPLETED`
+  - **Worker**: `codex` | **QA**: `gemma` | **Status**: `COMPLETED` (Commit `220032f`)
 - **WO-009** (Milestone 8): Augmented Reality (AR) 3D Physics & Photorealistic Ball Engine (Palm Bouncing, Grab & Throw, Shading & Skins).
-  - **Worker**: `codex` | **QA**: `gemma` | **Status**: `PLANNED` (Queued after WO-008)
+  - **Worker**: `codex` | **QA**: `gemma` | **Status**: `COMPLETED`

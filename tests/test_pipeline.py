@@ -1,5 +1,6 @@
 import numpy as np
 from types import SimpleNamespace
+from handtracking.ar import ARPhysicsEngine, BallRenderer, BallSkin
 from handtracking.config import MediaConfig
 from handtracking.controllers import KeySynthesizer, MediaController
 from handtracking.inference import DetectionResult
@@ -84,4 +85,29 @@ def test_pipeline_with_media_controller():
     out_frame, gestures, telemetry = pipe.process_frame(frame)
     assert out_frame is frame
     assert pipe.media_hud is not None
+    pipe.close()
+
+
+def test_pipeline_with_ar_ball():
+    class FakeDetector:
+        def detect(self, frame):
+            return DetectionResult(
+                hands=(make_test_hand(x=0.5, y=0.5),),
+                timestamp=1.0,
+            )
+
+    ar_physics = ARPhysicsEngine()
+    ar_renderer = BallRenderer(skin=BallSkin.CHROME)
+
+    pipe = HandTrackingPipeline(
+        detector=FakeDetector(),
+        ar_physics=ar_physics,
+        ar_renderer=ar_renderer,
+        smoothing=False,
+    )
+
+    frame = np.zeros((100, 100, 3), dtype=np.uint8)
+    out_frame, gestures, telemetry = pipe.process_frame(frame)
+    assert out_frame is frame
+    assert pipe.ar_physics.ball.position is not None
     pipe.close()

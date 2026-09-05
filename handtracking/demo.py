@@ -10,11 +10,12 @@ try:
 except ImportError:
     cv2 = None
 
+from .ar import ARPhysicsEngine, BallRenderer, BallSkin
 from .capture import AsyncWebcamCapture
 from .config import MediaConfig
 from .controllers import MediaController
 from .gestures import AirCanvas, TemporalGestureRecognizer
-from .inference import create_detector, DetectionResult
+from .inference import DetectionResult, create_detector
 from .pipeline import HandTrackingPipeline
 
 
@@ -33,6 +34,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--no-temporal", dest="temporal", action="store_false", help="Disable dynamic temporal gestures")
     p.add_argument("--media", action="store_true", help="Enable touchless media and entertainment controller")
     p.add_argument("--config", default="config.yaml", help="Path to media controller configuration YAML/JSON file")
+    p.add_argument("--ar-ball", "--ar", dest="ar_ball", action="store_true", help="Enable AR 3D interactive physics ball")
+    p.add_argument(
+        "--ar-skin",
+        default="basketball",
+        choices=("basketball", "chrome", "tennis", "neon"),
+        help="AR Ball material skin",
+    )
     p.add_argument("--no-smoothing", action="store_true", help="Disable 1 Euro adaptive smoothing")
     p.add_argument("--mirror", action="store_true", default=True, help="Mirror webcam display horizontally")
     p.add_argument("--no-mirror", dest="mirror", action="store_false", help="Disable mirror mode")
@@ -56,11 +64,14 @@ def main(argv: list[str] | None = None) -> int:
             media_cfg = MediaConfig.load(args.config)
             media_ctrl = MediaController(config=media_cfg)
 
+        ar_engine = ARPhysicsEngine() if args.ar_ball else None
+
         pipe = HandTrackingPipeline(
             detector=BenchmarkDetector(),
             smoothing=not args.no_smoothing,
             temporal=TemporalGestureRecognizer() if args.temporal else None,
             media_controller=media_ctrl,
+            ar_physics=ar_engine,
         )
         sample_frame = np.zeros((args.height or 480, args.width or 640, 3), dtype=np.uint8)
         for _ in range(max(0, args.benchmark)):
@@ -82,6 +93,11 @@ def main(argv: list[str] | None = None) -> int:
         media_controller = MediaController(config=media_cfg)
         print(f"Touchless Media Controller ENABLED. Wake gesture: '{media_cfg.wake_gesture}' (Hold 1.0s to wake).")
 
+    ar_physics = ARPhysicsEngine() if args.ar_ball else None
+    ar_renderer = BallRenderer(skin=BallSkin(args.ar_skin)) if args.ar_ball else None
+    if args.ar_ball:
+        print(f"AR 3D Interactive Ball ENABLED (Skin: {args.ar_skin.title()}). Controls: 'b' Reset Ball, 's' Cycle Skins, 'g' Toggle Gravity.")
+
     with (
         AsyncWebcamCapture(args.camera, width=args.width, height=args.height) as capture,
         HandTrackingPipeline(
@@ -91,6 +107,8 @@ def main(argv: list[str] | None = None) -> int:
             temporal=TemporalGestureRecognizer() if args.temporal else None,
             canvas=AirCanvas() if args.canvas else None,
             media_controller=media_controller,
+            ar_physics=ar_physics,
+            ar_renderer=ar_renderer,
         ) as pipe,
     ):
         window_name = "HandTracking (Press 'q' to exit)"
@@ -98,9 +116,11 @@ def main(argv: list[str] | None = None) -> int:
             cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
         print(f"HandTracking live feed started (Camera: {args.camera}, {args.width}x{args.height}). Press 'q' to exit.")
         if args.canvas:
-            print("Air Canvas Controls: Pinch index+thumb to draw | Press 'c' to clear canvas | Press '1'-'4' for colors (Green, Blue, Red, Yellow)")
+            print("Air Canvas Controls: Pinch index+thumb to draw | Press 'c' to clear canvas | Press '1'-'4' for colors")
         if args.media:
             print("Media Controls: Press 'w' to toggle wake/sleep | Press 'm' to toggle media HUD")
+        if args.ar_ball:
+            print("AR Ball Controls: Bounce with palm or fingertips | Pinch to grab & throw | 'b' Reset | 's' Skins | 'g' Gravity")
         start_wait = time.time()
         first_frame_shown = False
         while True:
@@ -123,6 +143,15 @@ def main(argv: list[str] | None = None) -> int:
                 elif key == ord("c") and pipe.canvas is not None:
                     pipe.canvas.clear()
                     print("Canvas cleared!")
+                elif key == ord("b") and pipe.ar_physics is not None:
+                    pipe.ar_physics.ball.reset(0.5, 0.25, 0.0)
+                    print("AR Ball reset to center position.")
+                elif key == ord("s") and pipe.ar_renderer is not None:
+                    new_skin = pipe.ar_renderer.cycle_skin()
+                    print(f"AR Ball Skin switched to: {new_skin.value.title()}")
+                elif key == ord("g") and pipe.ar_physics is not None:
+                    pipe.ar_physics.enable_gravity = not pipe.ar_physics.enable_gravity
+                    print(f"AR Gravity enabled: {pipe.ar_physics.enable_gravity}")
                 elif key == ord("w") and pipe.media_controller is not None:
                     if pipe.media_controller.state_machine.is_active:
                         pipe.media_controller.state_machine.sleep()
