@@ -11,6 +11,7 @@ dependencies = [
     "opencv-python",
     "mediapipe",
     "numpy",
+    "pyyaml",
 ]
 
 [project.optional-dependencies]

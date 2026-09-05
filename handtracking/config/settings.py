@@ -63,19 +63,66 @@ class MediaConfig:
             return cls()
         
         content = file_path.read_text(encoding="utf-8")
+        data: dict[str, Any] = {}
         if file_path.suffix.lower() in (".yaml", ".yml"):
             if yaml is not None:
                 data = yaml.safe_load(content) or {}
             else:
-                data = json.loads(content)
+                data = cls._parse_simple_yaml(content)
         elif file_path.suffix.lower() == ".json":
-            data = json.loads(content)
+            try:
+                data = json.loads(content)
+            except Exception:
+                data = {}
         else:
             try:
-                data = yaml.safe_load(content) if yaml else json.loads(content)
+                data = yaml.safe_load(content) if yaml else cls._parse_simple_yaml(content)
             except Exception:
-                data = json.loads(content)
+                data = {}
         return cls.from_dict(data if isinstance(data, dict) else {})
+
+    @staticmethod
+    def _parse_simple_yaml(content: str) -> dict[str, Any]:
+        result: dict[str, Any] = {}
+        current_dict: dict[str, Any] = result
+        current_section: str | None = None
+        for line in content.splitlines():
+            line = line.rstrip()
+            if not line or line.strip().startswith("#"):
+                continue
+            if line.startswith("  ") and current_section is not None:
+                subline = line.strip()
+                if ":" in subline:
+                    k, v = subline.split(":", 1)
+                    k = k.strip().strip("\"'")
+                    v = v.strip().strip("\"'")
+                    if v.lower() in ("true", "yes"): val: Any = True
+                    elif v.lower() in ("false", "no"): val = False
+                    elif v.isdigit(): val = int(v)
+                    else:
+                        try: val = float(v)
+                        except ValueError: val = v
+                    current_dict[k] = val
+            elif ":" in line:
+                k, v = line.split(":", 1)
+                k = k.strip().strip("\"'")
+                v = v.strip()
+                if not v or v.startswith("#"):
+                    current_section = k
+                    result[k] = {}
+                    current_dict = result[k]
+                else:
+                    current_section = None
+                    v = v.strip("\"'")
+                    if v.lower() in ("true", "yes"): val = True
+                    elif v.lower() in ("false", "no"): val = False
+                    elif v.isdigit(): val = int(v)
+                    else:
+                        try: val = float(v)
+                        except ValueError: val = v
+                    result[k] = val
+                    current_dict = result
+        return result
 
     def save(self, path: str | Path = "config.yaml") -> None:
         file_path = Path(path)
