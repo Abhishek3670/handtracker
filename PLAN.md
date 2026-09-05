@@ -172,6 +172,22 @@ flowchart TD
 - [x] **2.5D AR Ball Collision Engine (`handtracking.ar.colliders` & `physics`)**:
   - Update palm plane and fingertip colliders to prioritize screen-space (X-Y) projection with forgiving Z-depth bounds, ensuring the ball bounces, grabs, and throws accurately when touching the hand on screen.
 
+### Milestone 11: Digital 3D Cyber-Space Environment & Holographic Hand Rendering [COMPLETED]
+- [x] **Virtual 3D Room Renderer (`handtracking.ar.room`)**:
+  - Render perspective-projected 3D digital chamber (floor grid with depth perspective, bounding walls, ceiling, depth fog/gradient).
+  - 3D spatial cues: vertical drop-line from ball to floor grid and dynamic floor shadow showing exact $(X, Y, Z)$ position.
+  - Wall impact glow/pulse animations on boundary collisions.
+- [x] **Holographic 3D Hand Skeleton**:
+  - Render real-time 3D hand joints and glowing cyber-bones in 3D perspective with depth-scaled node sizes.
+  - Semi-transparent 3D palm plane grid avatar for intuitive spatial interaction.
+- [x] **Picture-In-Picture (PIP) & Toggle Mode**:
+  - Mini webcam preview in top-right corner with neon border.
+  - In-app hotkey `'v'` and CLI flag `--virtual-room` / `--virtual-space` to toggle between 3D Digital Room and AR Webcam streaming.
+- [x] **Pipeline, HUD & CLI Integration**:
+  - Update `HandTrackingPipeline` to support `virtual_room` mode.
+  - Update HUD instruction bar and help modal with `'v'` hotkey description.
+  - Add `--virtual-room` / `--virtual-space` / `-vr` flags in `demo.py`.
+
 ### Phase 3 / Future Extensions: Deep Learning Sequence Models [ON HOLD / DEFERRED]
 - [ ] Continuous American Sign Language (ASL) sentence recognition via Temporal Transformer / BiLSTM sequence models over 3D landmark streams.
 - [ ] Dense 3D Hand Mesh Estimation (e.g. MANO 778-vertex surface mesh via ONNX Runtime / DirectML GPU).
@@ -201,4 +217,6 @@ flowchart TD
 - **WO-010** (Milestone 9): Interactive On-Screen HUD Instructions & Help Cheat Sheet Card.
   - **Worker**: `codex` | **QA**: `gemma` | **Status**: `COMPLETED` (Commit `e6461fd`)
 - **WO-011** (Milestone 10): Hand Tracking Sensitivity, Dynamic Gesture Calibration & 2.5D AR Physics Collision Engine.
+  - **Worker**: `codex` | **QA**: `gemma` | **Status**: `COMPLETED` (Commit `0a2bbdf`)
+- **WO-012** (Milestone 11): Digital 3D Cyber-Space Environment for AR Ball Physics & Holographic Hand Rendering.
   - **Worker**: `codex` | **QA**: `gemma` | **Status**: `COMPLETED`

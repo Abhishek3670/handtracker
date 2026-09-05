@@ -36,6 +36,14 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--config", default="config.yaml", help="Path to media controller configuration YAML/JSON file")
     p.add_argument("--ar-ball", "--ar", dest="ar_ball", action="store_true", help="Enable AR 3D interactive physics ball")
     p.add_argument(
+        "--virtual-room",
+        "--virtual-space",
+        "-vr",
+        dest="virtual_room",
+        action="store_true",
+        help="Render digital 3D cyber-space environment instead of webcam feed",
+    )
+    p.add_argument(
         "--ar-skin",
         default="basketball",
         choices=("basketball", "chrome", "tennis", "neon"),
@@ -51,6 +59,9 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+
+    if args.virtual_room:
+        args.ar_ball = True
 
     if args.benchmark is not None:
         import numpy as np
@@ -72,6 +83,7 @@ def main(argv: list[str] | None = None) -> int:
             temporal=TemporalGestureRecognizer() if args.temporal else None,
             media_controller=media_ctrl,
             ar_physics=ar_engine,
+            virtual_room=args.virtual_room,
         )
         sample_frame = np.zeros((args.height or 480, args.width or 640, 3), dtype=np.uint8)
         for _ in range(max(0, args.benchmark)):
@@ -96,7 +108,7 @@ def main(argv: list[str] | None = None) -> int:
     ar_physics = ARPhysicsEngine() if args.ar_ball else None
     ar_renderer = BallRenderer(skin=BallSkin(args.ar_skin)) if args.ar_ball else None
     if args.ar_ball:
-        print(f"AR 3D Interactive Ball ENABLED (Skin: {args.ar_skin.title()}). Controls: 'b' Reset Ball, 's' Cycle Skins, 'g' Toggle Gravity.")
+        print(f"AR 3D Interactive Ball ENABLED (Skin: {args.ar_skin.title()}). Controls: 'v' 3D Space, 'b' Reset Ball, 's' Cycle Skins, 'g' Toggle Gravity.")
 
     with (
         AsyncWebcamCapture(args.camera, width=args.width, height=args.height) as capture,
@@ -109,6 +121,7 @@ def main(argv: list[str] | None = None) -> int:
             media_controller=media_controller,
             ar_physics=ar_physics,
             ar_renderer=ar_renderer,
+            virtual_room=args.virtual_room,
         ) as pipe,
     ):
         window_name = "HandTracking (Press 'q' to exit)"
@@ -120,7 +133,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.media:
             print("Media Controls: Press 'w' to toggle wake/sleep | Press 'm' to toggle media HUD")
         if args.ar_ball:
-            print("AR Ball Controls: Bounce with palm or fingertips | Pinch to grab & throw | 'b' Reset | 's' Skins | 'g' Gravity")
+            print("AR Ball Controls: Bounce with palm or fingertips | Pinch to grab & throw | 'v' 3D Space | 'b' Reset | 's' Skins | 'g' Gravity")
         start_wait = time.time()
         first_frame_shown = False
         while True:
@@ -143,6 +156,9 @@ def main(argv: list[str] | None = None) -> int:
                 elif key == ord("c") and pipe.canvas is not None:
                     pipe.canvas.clear()
                     print("Canvas cleared!")
+                elif key == ord("v") and pipe.ar_physics is not None:
+                    pipe.toggle_virtual_room()
+                    print(f"3D Cyber-Space Environment: {pipe.virtual_room}")
                 elif key == ord("b") and pipe.ar_physics is not None:
                     pipe.ar_physics.ball.reset(0.5, 0.25, 0.0)
                     print("AR Ball reset to center position.")
