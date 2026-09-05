@@ -30,25 +30,25 @@
 ```mermaid
 flowchart TD
     subgraph Capture["1. Asynchronous Capture Engine"]
-        Cam[Webcam DirectShow/MSMF] -->|Threaded Grab| RingBuf[Lock-Free Latest Frame Buffer]
+        Cam["Webcam DirectShow/MSMF"] -->|Threaded Grab| RingBuf["Lock-Free Latest Frame Buffer"]
     end
 
     subgraph Pipeline["2. GPU Inference & Processing"]
-        RingBuf -->|Zero-Copy / Shared Memory| PreProc[Color Conversion & GPU Tensor Prep]
-        PreProc -->|Batch 1| Inference[GPU Landmark & Palm Detector]
-        Inference --> RawLandmarks[21 3D Landmarks per Hand]
+        RingBuf -->|Zero-Copy / Shared Memory| PreProc["Color Conversion & GPU Tensor Prep"]
+        PreProc -->|Batch 1| Inference["GPU Landmark & Palm Detector"]
+        Inference --> RawLandmarks["21 3D Landmarks per Hand"]
     end
 
     subgraph Signal["3. Temporal Smoothing & Recognition"]
-        RawLandmarks --> Filter[1 Euro Adaptive Filter]
-        Filter --> SmoothLandmarks[Smoothed 3D Keypoints]
-        SmoothLandmarks --> Gesture[Rule-Based / Fast Gesture Classifier]
+        RawLandmarks --> Filter["1 Euro Adaptive Filter"]
+        Filter --> SmoothLandmarks["Smoothed 3D Keypoints"]
+        SmoothLandmarks --> Gesture["Rule-Based / Fast Gesture Classifier"]
     end
 
     subgraph Presentation["4. Output & Telemetry"]
-        SmoothLandmarks --> Renderer[Low-Overhead HUD / Video Sink]
-        Gesture --> EventBus[Event / Callback Dispatcher]
-        Renderer --> Telemetry[FPS / Latency Breakdown Telemetry]
+        SmoothLandmarks --> Renderer["Low-Overhead HUD / Video Sink"]
+        Gesture --> EventBus["Event / Callback Dispatcher"]
+        Renderer --> Telemetry["FPS / Latency Breakdown Telemetry"]
     end
 ```
 

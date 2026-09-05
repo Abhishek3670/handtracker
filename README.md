@@ -31,35 +31,35 @@
 ```mermaid
 flowchart TD
     subgraph Capture["1. Async Capture Engine"]
-        Cam[Webcam DirectShow/MSMF] -->|Threaded Grab| RingBuf[Latest Frame Buffer]
+        Cam["Webcam DirectShow/MSMF"] -->|Threaded Grab| RingBuf["Latest Frame Buffer"]
     end
 
     subgraph Inference["2. GPU Landmark & Depth Engine"]
-        RingBuf -->|Zero-Copy| MediaPipe[MediaPipe 3D Landmark Detector]
-        MediaPipe --> RawPoints[21 Raw 3D Landmarks]
-        RawPoints --> DepthEst[Monocular Palm Depth Z Estimation]
+        RingBuf -->|Zero-Copy| MediaPipe["MediaPipe 3D Landmark Detector"]
+        MediaPipe --> RawPoints["21 Raw 3D Landmarks"]
+        RawPoints --> DepthEst["Monocular Palm Depth Z Estimation"]
     end
 
     subgraph Signal["3. Signal Processing & Recognition"]
-        DepthEst --> OneEuro[Adaptive 1-Euro Filter]
-        OneEuro --> SmoothPoints[Smoothed 3D Keypoints]
-        SmoothPoints --> GeomGestures[10 Geometric Gesture Classifiers]
-        SmoothPoints --> TempGestures[Temporal Trajectory Recognizer]
+        DepthEst --> OneEuro["Adaptive 1-Euro Filter"]
+        OneEuro --> SmoothPoints["Smoothed 3D Keypoints"]
+        SmoothPoints --> GeomGestures["10 Geometric Gesture Classifiers"]
+        SmoothPoints --> TempGestures["Temporal Trajectory Recognizer"]
     end
 
     subgraph Controllers["4. Interactive Controllers & Physics"]
-        GeomGestures --> MediaSM[Media Controller State Machine]
+        GeomGestures --> MediaSM["Media Controller State Machine"]
         TempGestures --> MediaSM
-        GeomGestures --> AirCanvas[Air Canvas Drawing Engine]
-        SmoothPoints --> ARPhysics[3D AR Spring-Damper Physics Engine]
+        GeomGestures --> AirCanvas["Air Canvas Drawing Engine"]
+        SmoothPoints --> ARPhysics["3D AR Spring-Damper Physics Engine"]
     end
 
     subgraph Rendering["5. Dual-Engine Presentation"]
-        ARPhysics --> ModernGL[ModernGL GPU Shader Pipeline\n(3-Point Lighting + PBR Skins)]
-        ARPhysics -.->|CPU Fallback| CVRenderer[OpenCV 2.5D Renderer]
-        ModernGL --> Compositor[Alpha Frame Compositor]
+        ARPhysics --> ModernGL["ModernGL GPU Shader Pipeline<br/>(3-Point Lighting + PBR Skins)"]
+        ARPhysics -.->|CPU Fallback| CVRenderer["OpenCV 2.5D Renderer"]
+        ModernGL --> Compositor["Alpha Frame Compositor"]
         AirCanvas --> Compositor
-        Compositor --> TelemetryHUD[Real-Time HUD & Cheat Sheet]
+        Compositor --> TelemetryHUD["Real-Time HUD & Cheat Sheet"]
     end
 ```
 
