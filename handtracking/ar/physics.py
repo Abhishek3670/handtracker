@@ -7,7 +7,7 @@ import time
 from typing import Any, Iterable, Sequence
 
 from ..inference.models import HandLandmarks, Landmark3D
-from .colliders import FingertipCollider, HandVelocityTracker, PalmCollider, _add, _dot, _norm, _normalize, _scale, _sub
+from .colliders import FingertipCollider, HandVelocityTracker, PalmCollider, PointCollider, _add, _dot, _norm, _normalize, _scale, _sub
 
 
 class BallInteractionState(str, Enum):
@@ -118,16 +118,30 @@ class ARPhysicsEngine:
             lm = hand.landmarks
             thumb_tip = (lm[4].x, lm[4].y, lm[4].z)
             index_tip = (lm[8].x, lm[8].y, lm[8].z)
-            pinch_dist = _norm(_sub(thumb_tip, index_tip))
+            p_dx = thumb_tip[0] - index_tip[0]
+            p_dy = thumb_tip[1] - index_tip[1]
+            p_dz = thumb_tip[2] - index_tip[2]
+            pinch_dist_2d = math.hypot(p_dx, p_dy)
+            pinch_dist_3d = math.sqrt(p_dx * p_dx + p_dy * p_dy + p_dz * p_dz)
 
-            if pinch_dist <= 0.065:
+            # 2.5D pinch check
+            if pinch_dist_3d <= 0.075 or (pinch_dist_2d <= 0.065 and abs(p_dz) <= 0.18):
                 pinch_mid = (
                     (thumb_tip[0] + index_tip[0]) * 0.5,
                     (thumb_tip[1] + index_tip[1]) * 0.5,
                     (thumb_tip[2] + index_tip[2]) * 0.5,
                 )
-                dist_to_ball = _norm(_sub(pinch_mid, self.ball.position))
-                if dist_to_ball <= self.grab_threshold or (
+                b_dx = pinch_mid[0] - self.ball.position[0]
+                b_dy = pinch_mid[1] - self.ball.position[1]
+                b_dz = pinch_mid[2] - self.ball.position[2]
+                b_dist_2d = math.hypot(b_dx, b_dy)
+                b_dist_3d = math.sqrt(b_dx * b_dx + b_dy * b_dy + b_dz * b_dz)
+
+                is_near = (b_dist_3d <= self.grab_threshold) or (
+                    b_dist_2d <= self.grab_threshold and abs(b_dz) <= 0.25
+                )
+
+                if is_near or (
                     self.ball.state == BallInteractionState.GRABBED and self.ball.grabbed_hand_id == hand_id
                 ):
                     is_pinching = True

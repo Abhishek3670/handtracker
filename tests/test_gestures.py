@@ -91,3 +91,14 @@ def test_dispatcher_debounce_reset_and_multi_hand_isolation():
     assert events[-1].hand_id == "hand_1" and events[-1].state == EventState.END
     dispatcher.reset()
     assert events[-1].hand_id == "hand_2" and events[-1].state == EventState.END
+
+
+def test_fist_gesture_accepts_flexed_and_curled_thumb():
+    c = FingerState.CURLED
+    f = FingerState.FLEXED
+    # 1. Thumb Curled + 4 Curled -> FIST
+    assert recognize_for(FingerStates(c, c, c, c, c)) == GestureType.FIST
+
+    # 2. Thumb Flexed + 4 Curled -> FIST (relaxed calibration)
+    assert recognize_for(FingerStates(f, c, c, c, c)) == GestureType.FIST
+

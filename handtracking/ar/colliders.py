@@ -42,13 +42,14 @@ def _normalize(a: Sequence[float]) -> tuple[float, float, float]:
 
 @dataclass
 class PalmCollider:
-    """3D Palm plane collider derived from Wrist (0), Index MCP (5), and Pinky MCP (17)."""
+    """3D & 2.5D Palm plane collider derived from Wrist (0), Index MCP (5), and Pinky MCP (17)."""
     origin: tuple[float, float, float]
     normal: tuple[float, float, float]
     radius: float
+    z_threshold: float = 0.25
 
     @classmethod
-    def from_hand(cls, hand: HandLandmarks) -> PalmCollider:
+    def from_hand(cls, hand: HandLandmarks, z_threshold: float = 0.25) -> PalmCollider:
         lm = hand.landmarks
         p0 = (lm[0].x, lm[0].y, lm[0].z)
         p5 = (lm[5].x, lm[5].y, lm[5].z)
@@ -74,7 +75,7 @@ class PalmCollider:
         r5 = _norm(_sub(p5, origin))
         r17 = _norm(_sub(p17, origin))
         radius = max(r0, r5, r17, 0.05) * 1.35
-        return cls(origin=origin, normal=normal, radius=radius)
+        return cls(origin=origin, normal=normal, radius=radius, z_threshold=z_threshold)
 
     def distance_to_plane(self, point: Sequence[float]) -> float:
         """Signed distance from a 3D point to the palm plane."""
@@ -92,24 +93,63 @@ class PalmCollider:
     ) -> tuple[bool, float, tuple[float, float, float]]:
         """
         Returns (is_colliding, signed_distance, plane_normal).
+        Checks 3D plane collision as well as 2.5D screen-space proximity.
         """
         dist = self.distance_to_plane(ball_pos)
         proj = self.closest_point_on_plane(ball_pos)
-        dist_to_center = _norm(_sub(proj, self.origin))
+        dist_to_center_3d = _norm(_sub(proj, self.origin))
 
-        if abs(dist) <= ball_radius and dist_to_center <= self.radius:
-            return True, dist, self.normal
+        dx = ball_pos[0] - self.origin[0]
+        dy = ball_pos[1] - self.origin[1]
+        dz = ball_pos[2] - self.origin[2]
+        dist_2d = math.hypot(dx, dy)
+
+        # 3D plane intersection check
+        hit_3d = (abs(dist) <= ball_radius) and (dist_to_center_3d <= self.radius)
+        # 2.5D screen-space proximity check with forgiving Z depth
+        hit_25d = (dist_2d <= (self.radius + ball_radius * 0.5)) and (abs(dz) <= self.z_threshold) and (abs(dy) <= self.radius)
+
+        if hit_3d or hit_25d:
+            norm = self.normal if _norm(self.normal) > 0.5 else (0.0, -1.0, 0.0)
+            return True, dist, norm
         return False, dist, self.normal
 
 
 @dataclass
+class PointCollider:
+    """2.5D and 3D point collider for fingertip or specific landmark."""
+    position: tuple[float, float, float]
+    radius: float = 0.04
+    z_threshold: float = 0.22
+
+    def check_collision(
+        self,
+        ball_pos: Sequence[float],
+        ball_radius: float,
+    ) -> tuple[bool, float, tuple[float, float, float]]:
+        """Returns (is_colliding, distance_3d, collision_normal)."""
+        dx = ball_pos[0] - self.position[0]
+        dy = ball_pos[1] - self.position[1]
+        dz = ball_pos[2] - self.position[2]
+        dist_2d = math.hypot(dx, dy)
+        dist_3d = math.sqrt(dx * dx + dy * dy + dz * dz)
+        total_r = ball_radius + self.radius
+
+        if dist_3d <= total_r or (dist_2d <= total_r and abs(dz) <= self.z_threshold):
+            normal = (dx / dist_3d, dy / dist_3d, dz / dist_3d) if dist_3d > 1e-6 else (0.0, -1.0, 0.0)
+            return True, dist_3d, normal
+        return False, dist_3d, (0.0, 0.0, 0.0)
+
+
+@dataclass
 class FingertipCollider:
-    """Spherical colliders for 5 fingertips (Thumb 4, Index 8, Middle 12, Ring 16, Pinky 20)."""
+    """Spherical 2.5D/3D colliders for 5 fingertips (Thumb 4, Index 8, Middle 12, Ring 16, Pinky 20)."""
     tips: dict[int, tuple[float, float, float]]
     tip_radius: float = 0.035
+    z_threshold: float = 0.22
 
     @classmethod
-    def from_hand(cls, hand: HandLandmarks, tip_radius: float = 0.035) -> FingertipCollider:
+    def from_hand(cls, hand: HandLandmarks, tip_radius: float = 0.035, z_threshold: float = 0.22) -> FingertipCollider:
         lm = hand.landmarks
         tips = {
             4: (lm[4].x, lm[4].y, lm[4].z),
@@ -118,7 +158,7 @@ class FingertipCollider:
             16: (lm[16].x, lm[16].y, lm[16].z),
             20: (lm[20].x, lm[20].y, lm[20].z),
         }
-        return cls(tips=tips, tip_radius=tip_radius)
+        return cls(tips=tips, tip_radius=tip_radius, z_threshold=z_threshold)
 
     def check_collision(
         self,
@@ -126,19 +166,25 @@ class FingertipCollider:
         ball_radius: float,
     ) -> tuple[bool, int, tuple[float, float, float]]:
         """
-        Returns (is_colliding, hit_tip_index, collision_normal) for the closest colliding fingertip.
+        Returns (is_colliding, hit_tip_index, collision_normal) for the closest colliding fingertip in 2.5D/3D space.
         """
         closest_idx = -1
         min_dist = float("inf")
         closest_normal = (0.0, 0.0, 0.0)
 
         for tip_idx, tip_pos in self.tips.items():
-            diff = _sub(ball_pos, tip_pos)
-            dist = _norm(diff)
-            if dist <= (ball_radius + self.tip_radius) and dist < min_dist:
-                min_dist = dist
-                closest_idx = tip_idx
-                closest_normal = _normalize(diff) if dist > 1e-6 else (0.0, -1.0, 0.0)
+            dx = ball_pos[0] - tip_pos[0]
+            dy = ball_pos[1] - tip_pos[1]
+            dz = ball_pos[2] - tip_pos[2]
+            dist_2d = math.hypot(dx, dy)
+            dist_3d = math.sqrt(dx * dx + dy * dy + dz * dz)
+            total_r = ball_radius + self.tip_radius
+
+            if dist_3d <= total_r or (dist_2d <= total_r and abs(dz) <= self.z_threshold):
+                if dist_3d < min_dist:
+                    min_dist = dist_3d
+                    closest_idx = tip_idx
+                    closest_normal = (dx / dist_3d, dy / dist_3d, dz / dist_3d) if dist_3d > 1e-6 else (0.0, -1.0, 0.0)
 
         if closest_idx != -1:
             return True, closest_idx, closest_normal

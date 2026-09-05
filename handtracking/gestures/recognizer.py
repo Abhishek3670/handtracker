@@ -53,11 +53,11 @@ class GestureRecognizer:
                 matched = all(s[k] == FingerState(v) for k,v in (definition.states or {}).items())
             if matched: name = custom_name; break
         if name == GestureType.UNKNOWN:
-            e = FingerState.EXTENDED; c = FingerState.CURLED
+            e = FingerState.EXTENDED; c = FingerState.CURLED; f = FingerState.FLEXED
             vals = [s[x] for x in ("thumb","index","middle","ring","pinky")]
             if pinch < self.pinch_threshold: name = GestureType.PINCH
             elif vals == [e,e,e,e,e]: name = GestureType.OPEN_PALM
-            elif vals == [c,c,c,c,c]: name = GestureType.FIST
+            elif vals[0] in (c, f) and vals[1:] == [c,c,c,c]: name = GestureType.FIST
             elif vals[0] == c and vals[1] == c and vals[2:] == [e,e,e]: name = GestureType.OK_SIGN
             elif vals[1:3] == [e,e] and vals[3:] == [c,c]: name = GestureType.PEACE
             elif vals[1] == e and vals[2:] == [c,c,c]: name = GestureType.POINTING

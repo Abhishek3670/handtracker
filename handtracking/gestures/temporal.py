@@ -171,12 +171,71 @@ class WaveDetector:
     def clear(self):
         self.buffer.clear()
 
+def _evaluate_swipe_samples(
+    samples: Sequence[TrajectorySample],
+    min_duration: float,
+    swipe_threshold: float,
+    min_linearity: float = 0.85,
+    max_dev: float = 0.55,
+) -> str | None:
+    if len(samples) < 3:
+        return None
+    dt = samples[-1].timestamp - samples[0].timestamp
+    if dt < min_duration:
+        return None
+
+    a, b = samples[0].point, samples[-1].point
+    dx, dy = b.x - a.x, b.y - a.y
+    if max(abs(dx), abs(dy)) < swipe_threshold:
+        return None
+
+    total = 0.0
+    for s1, s2 in zip(samples, samples[1:]):
+        total += math.hypot(s2.point.x - s1.point.x, s2.point.y - s1.point.y)
+    if total <= 1e-6:
+        return None
+
+    disp = math.hypot(dx, dy)
+    linearity = disp / total
+    if linearity < min_linearity:
+        return None
+
+    step_angles = []
+    for s1, s2 in zip(samples, samples[1:]):
+        step_dx = s2.point.x - s1.point.x
+        step_dy = s2.point.y - s1.point.y
+        if math.hypot(step_dx, step_dy) >= 0.003:
+            step_angles.append(math.atan2(step_dy, step_dx))
+    if len(step_angles) >= 2:
+        ref_angle = step_angles[0]
+        max_deviation = 0.0
+        for ang in step_angles[1:]:
+            diff = abs((ang - ref_angle + math.pi) % (2 * math.pi) - math.pi)
+            if diff > max_deviation:
+                max_deviation = diff
+        if max_deviation > max_dev:
+            return None
+
+    if abs(dx) >= abs(dy):
+        direction = "Right" if dx >= 0 else "Left"
+    else:
+        direction = "Down" if dy >= 0 else "Up"
+    return f"Swipe {direction}"
+
+
 class TemporalGestureRecognizer:
     """Sliding-window dynamic gesture recognizer supporting swipes, circles, and waves."""
-    def __init__(self, window_size: int = 30, swipe_threshold: float = 0.15, min_duration: float = 0.05):
+    def __init__(
+        self,
+        window_size: int = 30,
+        swipe_threshold: float = 0.08,
+        min_duration: float = 0.05,
+        sub_window_range: tuple[int, int] = (10, 14),
+    ):
         self.window_size = window_size
         self.swipe_threshold = swipe_threshold
         self.min_duration = min_duration
+        self.sub_window_range = sub_window_range
         self.buffers: dict[Any, TrajectoryBuffer] = {}
         self.circle_detectors: dict[Any, CircleDetector] = {}
         self.wave_detectors: dict[Any, WaveDetector] = {}
@@ -201,17 +260,25 @@ class TemporalGestureRecognizer:
         if len(buffer) < 3:
             return None
 
-        dt = buffer.samples[-1].timestamp - buffer.samples[0].timestamp
-        dx, dy, _ = buffer.displacement()
-        if (
-            dt >= self.min_duration
-            and max(abs(dx), abs(dy)) >= self.swipe_threshold
-            and buffer.linearity() >= 0.85
-            and buffer.max_direction_deviation() <= 0.55
-        ):
-            gesture = f"Swipe {buffer.direction().title()}"
-            self._reset_hand(hand_id, point, timestamp)
-            return gesture
+        samples = list(buffer.samples)
+        # Check sub-windows (10-14 frames) as well as full buffer for responsive flick detection
+        sub_min, sub_max = self.sub_window_range
+        candidate_lengths: list[int] = []
+        if len(samples) >= sub_min:
+            for w in range(min(len(samples), sub_max), sub_min - 1, -1):
+                candidate_lengths.append(w)
+            if len(samples) not in candidate_lengths:
+                candidate_lengths.append(len(samples))
+        else:
+            candidate_lengths.append(len(samples))
+
+        for w in candidate_lengths:
+            sub = samples[-w:]
+            thresh = self.swipe_threshold if w >= sub_min else max(self.swipe_threshold, 0.15)
+            res = _evaluate_swipe_samples(sub, self.min_duration, thresh)
+            if res:
+                self._reset_hand(hand_id, point, timestamp)
+                return res
 
         return None
 
@@ -241,3 +308,7 @@ class TemporalGestureRecognizer:
             self.buffers.pop(hand_id, None)
             self.circle_detectors.pop(hand_id, None)
             self.wave_detectors.pop(hand_id, None)
+
+
+TemporalGestureTracker = TemporalGestureRecognizer
+

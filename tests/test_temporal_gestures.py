@@ -114,3 +114,26 @@ def test_model_complexity_is_forwarded():
     Solution = type("Solution", (), {"Hands": Hands})
     MediaPipeHandDetector(hands_solution=Solution, model_complexity=0)
     assert received[0]["model_complexity"] == 0
+
+
+def test_sub_window_flick_swipe_detection():
+    from handtracking.gestures import TemporalGestureTracker
+    recognizer = TemporalGestureTracker(window_size=30, swipe_threshold=0.08)
+
+    # 1. Stationary hand for 15 frames
+    for i in range(15):
+        res = recognizer.update("hand1", Landmark3D(0.5, 0.5, 0.0), i * 0.033)
+        assert res is None
+
+    # 2. Rapid horizontal flick to the right across 11 frames (displacement 0.11 > 0.08)
+    detected_swipe = None
+    for j in range(1, 12):
+        ts = 15 * 0.033 + j * 0.033
+        x = 0.5 + j * 0.01
+        res = recognizer.update("hand1", Landmark3D(x, 0.5, 0.0), ts)
+        if res:
+            detected_swipe = res
+            break
+
+    assert detected_swipe == "Swipe Right"
+

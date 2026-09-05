@@ -47,7 +47,7 @@ class MediaPipeHandDetector(BaseHandDetector):
     """
 
     def __init__(self, max_num_hands: int = 2,
-                 min_detection_confidence: float = 0.7,
+                 min_detection_confidence: float = 0.5,
                  min_tracking_confidence: float = 0.5,
                  model_complexity: int = 1,
                  *, hands_solution: Any = None) -> None:
@@ -71,6 +71,8 @@ class MediaPipeHandDetector(BaseHandDetector):
             return DetectionResult(timestamp=timestamp, error="empty frame")
         try:
             rgb = self._to_rgb(frame)
+            if hasattr(rgb, "flags"):
+                rgb.flags.writeable = False
             result = self._hands.process(rgb)
             hands = tuple(self._convert_hand(result, i)
                           for i in range(len(getattr(result, "multi_hand_landmarks", None) or [])))

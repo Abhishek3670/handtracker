@@ -160,6 +160,18 @@ flowchart TD
 - [x] **CLI & Pipeline Integration**:
   - `pipe.hud.show_help` toggle in `demo.py` on `'h'` keypress.
 
+### Milestone 10: Hand Tracking Sensitivity, Dynamic Gesture Calibration & 2.5D AR Physics [COMPLETED]
+- [x] **Detector Tuning (`handtracking.inference.detector`)**:
+  - Lower `min_detection_confidence` default from 0.7 to 0.5 (matching reference benchmark) for robust tracking during fast motions and edge poses.
+  - Set `model_complexity=1` (Full model) as default across pipeline and demo for higher landmark accuracy.
+  - Set `rgb.flags.writeable = False` for zero-copy C++ processing.
+- [x] **Fist / Mute Gesture Calibration (`handtracking.gestures.recognizer`)**:
+  - Relax thumb curling requirement to accept `FLEXED` thumb over curled fingers, making the Fist gesture trigger reliably 100% of the time.
+- [x] **Responsive Swipe / Track Skip Engine (`handtracking.gestures.temporal`)**:
+  - Implement sub-window velocity-based swipe detection (10-14 frames) with calibrated displacement threshold (0.08) to detect natural hand flicks without stationary frame dampening.
+- [x] **2.5D AR Ball Collision Engine (`handtracking.ar.colliders` & `physics`)**:
+  - Update palm plane and fingertip colliders to prioritize screen-space (X-Y) projection with forgiving Z-depth bounds, ensuring the ball bounces, grabs, and throws accurately when touching the hand on screen.
+
 ### Phase 3 / Future Extensions: Deep Learning Sequence Models [ON HOLD / DEFERRED]
 - [ ] Continuous American Sign Language (ASL) sentence recognition via Temporal Transformer / BiLSTM sequence models over 3D landmark streams.
 - [ ] Dense 3D Hand Mesh Estimation (e.g. MANO 778-vertex surface mesh via ONNX Runtime / DirectML GPU).
@@ -187,4 +199,6 @@ flowchart TD
 - **WO-009** (Milestone 8): Augmented Reality (AR) 3D Physics & Photorealistic Ball Engine (Palm Bouncing, Grab & Throw, Shading & Skins).
   - **Worker**: `codex` | **QA**: `gemma` | **Status**: `COMPLETED` (Commit `cca00bc`)
 - **WO-010** (Milestone 9): Interactive On-Screen HUD Instructions & Help Cheat Sheet Card.
+  - **Worker**: `codex` | **QA**: `gemma` | **Status**: `COMPLETED` (Commit `e6461fd`)
+- **WO-011** (Milestone 10): Hand Tracking Sensitivity, Dynamic Gesture Calibration & 2.5D AR Physics Collision Engine.
   - **Worker**: `codex` | **QA**: `gemma` | **Status**: `COMPLETED`

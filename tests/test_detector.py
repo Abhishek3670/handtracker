@@ -63,3 +63,30 @@ def test_detector_handles_empty_frame():
     result = detector.detect(None)
     assert not result.detected
     assert result.error == "empty frame"
+
+
+def test_detector_calibrated_defaults_and_zero_copy_flag():
+    captured_frames = []
+
+    class MockHands:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+        def process(self, rgb_frame):
+            captured_frames.append(rgb_frame)
+            return SimpleNamespace(multi_hand_landmarks=None)
+
+    MockSolution = type("MockSolution", (), {"Hands": MockHands})
+    detector = MediaPipeHandDetector(hands_solution=MockSolution)
+
+    # Check calibrated default values
+    assert detector._hands.kwargs["min_detection_confidence"] == 0.5
+    assert detector._hands.kwargs["model_complexity"] == 1
+    assert detector._hands.kwargs["min_tracking_confidence"] == 0.5
+
+    # Check zero-copy writeable flag
+    test_img = np.zeros((20, 20, 3), dtype=np.uint8)
+    detector.detect(test_img)
+    assert len(captured_frames) == 1
+    assert captured_frames[0].flags.writeable is False
+

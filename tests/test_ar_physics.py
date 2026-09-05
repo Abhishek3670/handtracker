@@ -1,5 +1,5 @@
 import pytest
-from handtracking.ar.colliders import FingertipCollider, HandVelocityTracker, PalmCollider
+from handtracking.ar.colliders import FingertipCollider, HandVelocityTracker, PalmCollider, PointCollider
 from handtracking.ar.physics import ARPhysicsEngine, BallInteractionState, BallState, ImpactRipple
 from handtracking.inference.models import BoundingBox, Handedness, HandLandmarks, Landmark3D
 
@@ -142,3 +142,36 @@ def test_impact_ripple_animation():
     expired = ripple.update(10.35)
     assert expired is False
     assert ripple.alpha == 0.0
+
+
+def test_point_collider_and_25d_collisions():
+    # 1. PointCollider 3D and 2.5D collision checks
+    collider = PointCollider(position=(0.5, 0.5, 0.0), radius=0.04, z_threshold=0.20)
+
+    # A. 3D hit
+    hit_3d, dist_3d, normal_3d = collider.check_collision((0.5, 0.52, 0.0), ball_radius=0.05)
+    assert hit_3d is True
+    assert dist_3d < 0.09
+
+    # B. 2.5D hit with Z offset within threshold (e.g. z = 0.12)
+    hit_25d, dist_25d, normal_25d = collider.check_collision((0.5, 0.52, 0.12), ball_radius=0.05)
+    assert hit_25d is True
+
+    # C. Miss when screen-space 2D is far
+    miss, _, _ = collider.check_collision((0.8, 0.8, 0.0), ball_radius=0.05)
+    assert miss is False
+
+    # 2. 2.5D Pinch Grab in Physics Engine with depth variance
+    engine = ARPhysicsEngine()
+    engine.ball.position = (0.5, 0.5, 0.0)
+
+    hand = make_test_hand()
+    pts = list(hand.landmarks)
+    # Pinch centered at (0.5, 0.5) with z = 0.15
+    pts[4] = Landmark3D(0.49, 0.5, 0.15)
+    pts[8] = Landmark3D(0.51, 0.5, 0.15)
+    depth_pinching_hand = HandLandmarks(tuple(pts), hand.handedness, hand.bounding_box)
+
+    engine.step(hands=[depth_pinching_hand], timestamp=1.0)
+    assert engine.ball.state == BallInteractionState.GRABBED
+
