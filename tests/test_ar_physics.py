@@ -8,6 +8,7 @@ def make_test_hand(wrist=(0.5, 0.5, 0.0), index_mcp=(0.45, 0.4, 0.0), pinky_mcp=
     points = [Landmark3D(0.5, 0.5, 0.0)] * 21
     points[0] = Landmark3D(*wrist)
     points[5] = Landmark3D(*index_mcp)
+    points[9] = Landmark3D(wrist[0], wrist[1] - 0.18, wrist[2])
     points[17] = Landmark3D(*pinky_mcp)
     # Tips
     points[4] = Landmark3D(0.4, 0.35, 0.0)  # Thumb tip

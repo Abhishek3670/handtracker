@@ -4,6 +4,7 @@ from dataclasses import dataclass
 import math
 from typing import Any, Iterable, Sequence
 
+from ..inference.depth import estimate_hand_depth
 from ..inference.models import HandLandmarks, Landmark3D
 
 
@@ -49,11 +50,17 @@ class PalmCollider:
     z_threshold: float = 0.25
 
     @classmethod
-    def from_hand(cls, hand: HandLandmarks, z_threshold: float = 0.25) -> PalmCollider:
+    def from_hand(
+        cls,
+        hand: HandLandmarks,
+        z_threshold: float = 0.25,
+        z_hand: float | None = None,
+    ) -> PalmCollider:
         lm = hand.landmarks
-        p0 = (lm[0].x, lm[0].y, lm[0].z)
-        p5 = (lm[5].x, lm[5].y, lm[5].z)
-        p17 = (lm[17].x, lm[17].y, lm[17].z)
+        z_offset = estimate_hand_depth(hand) if z_hand is None else float(z_hand)
+        p0 = (lm[0].x, lm[0].y, z_offset + lm[0].z)
+        p5 = (lm[5].x, lm[5].y, z_offset + lm[5].z)
+        p17 = (lm[17].x, lm[17].y, z_offset + lm[17].z)
 
         # Centroid of palm base triangle
         cx = (p0[0] + p5[0] + p17[0]) / 3.0
@@ -149,14 +156,21 @@ class FingertipCollider:
     z_threshold: float = 0.22
 
     @classmethod
-    def from_hand(cls, hand: HandLandmarks, tip_radius: float = 0.035, z_threshold: float = 0.22) -> FingertipCollider:
+    def from_hand(
+        cls,
+        hand: HandLandmarks,
+        tip_radius: float = 0.035,
+        z_threshold: float = 0.22,
+        z_hand: float | None = None,
+    ) -> FingertipCollider:
         lm = hand.landmarks
+        z_offset = estimate_hand_depth(hand) if z_hand is None else float(z_hand)
         tips = {
-            4: (lm[4].x, lm[4].y, lm[4].z),
-            8: (lm[8].x, lm[8].y, lm[8].z),
-            12: (lm[12].x, lm[12].y, lm[12].z),
-            16: (lm[16].x, lm[16].y, lm[16].z),
-            20: (lm[20].x, lm[20].y, lm[20].z),
+            4: (lm[4].x, lm[4].y, z_offset + lm[4].z),
+            8: (lm[8].x, lm[8].y, z_offset + lm[8].z),
+            12: (lm[12].x, lm[12].y, z_offset + lm[12].z),
+            16: (lm[16].x, lm[16].y, z_offset + lm[16].z),
+            20: (lm[20].x, lm[20].y, z_offset + lm[20].z),
         }
         return cls(tips=tips, tip_radius=tip_radius, z_threshold=z_threshold)
 

@@ -1,5 +1,6 @@
 """Hand landmark inference APIs."""
 
+from .depth import estimate_hand_depth
 from .detector import BaseHandDetector, MediaPipeHandDetector, create_detector
 from .models import (
     BoundingBox,
@@ -18,4 +19,5 @@ __all__ = [
     "Landmark3D",
     "MediaPipeHandDetector",
     "create_detector",
+    "estimate_hand_depth",
 ]

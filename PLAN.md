@@ -198,6 +198,16 @@ flowchart TD
 - [x] **Pipeline & Integration (`handtracking.pipeline`)**:
   - Forward `virtual_room` flag and projection function from `Virtual3DRoomRenderer` to `BallRenderer`.
 
+### Milestone 13: Dynamic Monocular Hand Depth ($Z$) Estimation & Free 3D Spatial Movement [COMPLETED]
+- [x] **Dynamic Hand Depth Estimation (`handtracking.inference.depth` / `colliders`)**:
+  - Estimate camera distance $Z_{hand} \in [-0.55, 0.55]$ from normalized palm span ($L_{palm} = \|P_9 - P_0\|$) relative to calibrated baseline $L_{ref} \approx 0.18$.
+  - Transform hand 3D coordinates in world/room space: $Z_i = Z_{hand} + z_i$.
+- [x] **Full 3D Ball Manipulation & Depth Throwing (`handtracking.ar.physics`)**:
+  - Update pinch-to-grab to lock ball at $(X_{pinch}, Y_{pinch}, Z_{pinch} = Z_{hand} + \bar{z}_{tips})$, enabling full forward/backward translation across the 3D room.
+  - Track hand depth velocity ($V_z$) in `HandVelocityTracker` to allow throwing the ball deep into the 3D room (bouncing off the back wall grid) or pulling it forward.
+- [x] **3D Holographic Hand Depth in Cyber-Space (`handtracking.ar.room`)**:
+  - Render 3D holographic hand joints, cyber-bones, and palm avatar at true room depth $Z_i = Z_{hand} + z_i$.
+
 ### Phase 3 / Future Extensions: Deep Learning Sequence Models [ON HOLD / DEFERRED]
 - [ ] Continuous American Sign Language (ASL) sentence recognition via Temporal Transformer / BiLSTM sequence models over 3D landmark streams.
 - [ ] Dense 3D Hand Mesh Estimation (e.g. MANO 778-vertex surface mesh via ONNX Runtime / DirectML GPU).
@@ -231,4 +241,6 @@ flowchart TD
 - **WO-012** (Milestone 11): Digital 3D Cyber-Space Environment for AR Ball Physics & Holographic Hand Rendering.
   - **Worker**: `codex` | **QA**: `gemma` | **Status**: `COMPLETED` (Commit `5ff001b`)
 - **WO-013** (Milestone 12): 3D Virtual Space Perspective Camera Alignment & Unified Spatial Shadows.
+  - **Worker**: `codex` | **QA**: `gemma` | **Status**: `COMPLETED` (Commit `b2fff7c`)
+- **WO-014** (Milestone 13): Dynamic Monocular Hand Depth ($Z$) Estimation & Free 3D Spatial Movement.
   - **Worker**: `codex` | **QA**: `gemma` | **Status**: `COMPLETED`

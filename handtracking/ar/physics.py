@@ -6,6 +6,7 @@ import math
 import time
 from typing import Any, Iterable, Sequence
 
+from ..inference.depth import estimate_hand_depth
 from ..inference.models import HandLandmarks, Landmark3D
 from .colliders import FingertipCollider, HandVelocityTracker, PalmCollider, PointCollider, _add, _dot, _norm, _normalize, _scale, _sub
 
@@ -74,6 +75,7 @@ class ARPhysicsEngine:
         self.velocity_tracker = HandVelocityTracker()
         self.ripples: list[ImpactRipple] = []
         self.last_step_time: float | None = None
+        self.last_wall_impact_time: float | None = None
 
         # Normalized screen boundaries
         self.bounds_min = (0.05, 0.05, -0.6)
@@ -102,10 +104,11 @@ class ARPhysicsEngine:
 
         hands_list = list(hands)
 
-        # 1. Update hand velocities
+        # 1. Update hand velocities with estimated 3D depth
         for hand in hands_list:
             hand_id = hand.handedness.label
-            p0 = (hand.landmarks[0].x, hand.landmarks[0].y, hand.landmarks[0].z)
+            z_hand = estimate_hand_depth(hand)
+            p0 = (hand.landmarks[0].x, hand.landmarks[0].y, z_hand + hand.landmarks[0].z)
             self.velocity_tracker.update(hand_id, p0, ts)
 
         # 2. Check Pinch-to-Grab and Throw
@@ -115,9 +118,12 @@ class ARPhysicsEngine:
 
         for hand in hands_list:
             hand_id = hand.handedness.label
+            z_hand = estimate_hand_depth(hand)
             lm = hand.landmarks
-            thumb_tip = (lm[4].x, lm[4].y, lm[4].z)
-            index_tip = (lm[8].x, lm[8].y, lm[8].z)
+            thumb_z = z_hand + lm[4].z
+            index_z = z_hand + lm[8].z
+            thumb_tip = (lm[4].x, lm[4].y, thumb_z)
+            index_tip = (lm[8].x, lm[8].y, index_z)
             p_dx = thumb_tip[0] - index_tip[0]
             p_dy = thumb_tip[1] - index_tip[1]
             p_dz = thumb_tip[2] - index_tip[2]
@@ -149,6 +155,7 @@ class ARPhysicsEngine:
                     active_hand_id = hand_id
                     break
 
+        just_released_hand_id: Any = None
         if is_pinching and active_pinch_point is not None:
             self.ball.state = BallInteractionState.GRABBED
             self.ball.grabbed_hand_id = active_hand_id
@@ -166,6 +173,7 @@ class ARPhysicsEngine:
             # Momentum transfer boost
             self.ball.velocity = _scale(hand_vel, 1.35)
             self.ball.grabbed_hand_id = None
+            just_released_hand_id = prev_hand_id
 
         # 3. Free flight physics integration (Gravity + Drag)
         vx, vy, vz = self.ball.velocity
@@ -192,10 +200,13 @@ class ARPhysicsEngine:
 
         for hand in hands_list:
             hand_id = hand.handedness.label
+            if hand_id == just_released_hand_id:
+                continue
             hand_vel = self.velocity_tracker.get_velocity(hand_id)
+            z_hand = estimate_hand_depth(hand)
 
             # A. Palm Collision
-            palm = PalmCollider.from_hand(hand)
+            palm = PalmCollider.from_hand(hand, z_hand=z_hand)
             colliding, dist, normal = palm.check_collision(self.ball.position, r)
             if colliding:
                 # Correct penetration
@@ -220,7 +231,7 @@ class ARPhysicsEngine:
                 continue
 
             # B. Fingertip Volley Collisions
-            fingertips = FingertipCollider.from_hand(hand)
+            fingertips = FingertipCollider.from_hand(hand, z_hand=z_hand)
             tip_hit, tip_idx, tip_normal = fingertips.check_collision(self.ball.position, r)
             if tip_hit:
                 rel_v = _sub(self.ball.velocity, hand_vel)
@@ -266,9 +277,15 @@ class ARPhysicsEngine:
         if pz <= self.bounds_min[2]:
             pz = self.bounds_min[2]
             vz = abs(vz) * e
+            self.last_wall_impact_time = ts
+            if abs(vz) > 0.15:
+                self.spawn_ripple((px, py, pz), ts)
         elif pz >= self.bounds_max[2]:
             pz = self.bounds_max[2]
             vz = -abs(vz) * e
+            self.last_wall_impact_time = ts
+            if abs(vz) > 0.15:
+                self.spawn_ripple((px, py, pz), ts)
 
         self.ball.position = (px, py, pz)
         self.ball.velocity = (vx, vy, vz)

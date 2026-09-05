@@ -11,6 +11,7 @@ except ImportError:
 
 import numpy as np
 
+from ..inference.depth import estimate_hand_depth
 from ..inference.models import HAND_CONNECTIONS, HandLandmarks, HandednessLabel
 from .colliders import PalmCollider
 from .physics import ARPhysicsEngine, BallState
@@ -57,6 +58,12 @@ class Virtual3DRoomRenderer:
         """Render the complete digital 3D room background, holographic hands, drop-indicators, and PIP."""
         ts = time.time() if timestamp is None else float(timestamp)
         h, w = frame.shape[:2]
+
+        # Sync wall pulse from physics engine impact if active
+        if getattr(engine, "last_wall_impact_time", None) is not None:
+            time_since_impact = ts - engine.last_wall_impact_time
+            if 0.0 <= time_since_impact <= 0.35 and (ts - self.wall_glow_time) > 0.35:
+                self.trigger_wall_pulse(timestamp=engine.last_wall_impact_time, color=(0, 255, 255))
 
         # 1. Fill cyber gradient background (Deep slate navy -> dark cosmic purple)
         self._render_cyber_background(frame, w, h)
@@ -171,9 +178,11 @@ class Virtual3DRoomRenderer:
             bone_color = (255, 220, 0) if is_left else (0, 240, 255)  # Cyan or Gold
             joint_color = (255, 255, 255)  # Bright core
 
-            # Project all 21 joints
+            z_hand = estimate_hand_depth(hand)
+
+            # Project all 21 joints using z_hand depth offset
             projected_pts = [
-                self.project_3d(lm.x, lm.y, lm.z, width, height)
+                self.project_3d(lm.x, lm.y, z_hand + lm.z, width, height)
                 for lm in hand.landmarks
             ]
 
@@ -189,13 +198,14 @@ class Virtual3DRoomRenderer:
             for a, b in HAND_CONNECTIONS:
                 pt_a = projected_pts[a]
                 pt_b = projected_pts[b]
-                avg_z = (hand.landmarks[a].z + hand.landmarks[b].z) * 0.5
-                thickness = max(1, round(2.5 * (1.0 / max(0.3, 1.0 + avg_z))))
+                avg_z = z_hand + (hand.landmarks[a].z + hand.landmarks[b].z) * 0.5
+                thickness = max(1, round(2.5 * (1.0 / max(0.25, 1.0 + avg_z * self.focal_depth))))
                 cv2.line(frame, pt_a, pt_b, bone_color, thickness, cv2.LINE_AA)
 
             # 3. Glowing Joint Spheres
             for i, (lm, pt) in enumerate(zip(hand.landmarks, projected_pts)):
-                z_scale = 1.0 / max(0.3, 1.0 + lm.z)
+                joint_z = z_hand + lm.z
+                z_scale = 1.0 / max(0.25, 1.0 + joint_z * self.focal_depth)
                 base_r = 5 if i in (4, 8, 12, 16, 20) else 3
                 radius = max(2, round(base_r * z_scale))
                 cv2.circle(frame, pt, radius + 2, bone_color, 1, cv2.LINE_AA)
